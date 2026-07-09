@@ -1,0 +1,170 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Warm & Editorial design system (spec §3) — tokens as CSS vars
+   so they work in raw CSS (service worker, splash) and Tailwind.
+   ============================================================ */
+@theme {
+  --color-paper: #faf6ef; /* background */
+  --color-surface: #fdfbf7; /* cards / sheets */
+  --color-ink: #2b2420; /* primary text */
+  --color-softink: #6b6058; /* secondary text */
+  --color-terracotta: #c1502d; /* primary accent */
+  --color-sage: #4b5d45; /* habit / success */
+  --color-ochre: #c89b3c; /* streaks / highlights */
+  --color-taupe: #e4dccb; /* dividers / hairlines */
+  --color-rust: #a8412a; /* destructive / error */
+
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Warm-tinted, soft/diffuse shadow (spec §3 texture & motion) */
+  --shadow-page: 0 1px 2px rgba(43, 36, 32, 0.04), 0 6px 18px rgba(43, 36, 32, 0.08);
+  --shadow-lift: 0 2px 6px rgba(43, 36, 32, 0.06), 0 14px 30px rgba(43, 36, 32, 0.1);
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* ---- Theme variants (applied via <html data-theme="...">) ---- */
+html[data-theme="dark"] {
+  --color-paper: #1c1815;
+  --color-surface: #26211c;
+  --color-ink: #f3ede3;
+  --color-softink: #b3a99c;
+  --color-terracotta: #d9683f;
+  --color-sage: #7c8a5a;
+  --color-ochre: #d9b35c;
+  --color-taupe: #3a332c;
+  --color-rust: #d9683f;
+  color-scheme: dark;
+}
+
+html[data-theme="sepia"] {
+  --color-paper: #f1e4cf;
+  --color-surface: #f7efdd;
+  --color-ink: #46372a;
+  --color-softink: #8a765e;
+  --color-terracotta: #b34a28;
+  --color-sage: #5d6b48;
+  --color-ochre: #b08634;
+  --color-taupe: #ddc9a8;
+  --color-rust: #b34a28;
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Kill blue tap-flash + rubber-band overscroll + double-tap zoom (spec §6) */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  /* Keep caret-into-view scrolls clear of the fixed bottom TabBar */
+  scroll-padding-bottom: 6rem;
+}
+
+/* Respect notch + home indicator everywhere (spec §6) */
+#root {
+  min-height: 100%;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Buttons / interactive hits: no double-tap zoom, no text select on chrome */
+button,
+.interactive {
+  touch-action: manipulation;
+}
+
+/* App feels native: no text selection, no long-press copy/callout, no context menu.
+   Inputs (text fields) stay editable — see override below. */
+* {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-bar,
+.app-header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Re-enable selection only inside actual text inputs / editors. */
+input,
+textarea,
+[contenteditable="true"],
+.journal-prose {
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  user-select: text;
+}
+
+/* Very subtle paper-grain texture overlay (~3-4% opacity) (spec §3) */
+.paper-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   Journal rich-text prose (Tiptap / ProseMirror)
+   Reads like a page, not a form field (spec §3, §5.1).
+   ============================================================ */
+.journal-prose {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  line-height: 1.65;
+  font-size: 17px;
+}
+.journal-prose:focus {
+  outline: none;
+}
+.journal-prose p {
+  margin: 0 0 1em;
+}
+.journal-prose h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+.journal-prose h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin: 1em 0 0.4em;
+}
+.journal-prose ul,
+.journal-prose ol {
+  margin: 0 0 1em;
+  padding-left: 1.4em;
+}
+.journal-prose li {
+  margin: 0.25em 0;
+}
+.journal-prose blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--color-taupe);
+  color: var(--color-softink);
+  font-style: italic;
+}
+.journal-prose strong {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+

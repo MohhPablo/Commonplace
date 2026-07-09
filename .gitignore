@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Vite / TS cache
+*.local
+.tsbuildinfo
+vite.config.ts.timestamp-*
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Command Code agent files (local only)
+.commandcode/

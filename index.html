@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- iOS ignores the manifest for these — must be separate (see pwa-ios-technical-reference §1a) -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Commonplace" />
+    <meta name="theme-color" content="#FAF6EF" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+
+    <!-- Typography: Fraunces (serif headers) + Inter (UI/body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>Commonplace</title>
+
+    <!-- Cheap splash: paint paper bg + wordmark instantly, before JS loads (see §2 option 2) -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #faf6ef;
+      }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #faf6ef;
+        z-index: 9999;
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 600;
+        font-size: 28px;
+        letter-spacing: 0.01em;
+        color: #2b2420;
+        opacity: 1;
+        transition: opacity 400ms ease;
+      }
+      #boot-splash.boot-splash--hide {
+        opacity: 0;
+      }
+      #boot-splash .dot {
+        color: #c1502d;
+      }
+      #root:not(:empty) + #boot-splash {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot-splash">Commonplace<span class="dot">.</span></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
