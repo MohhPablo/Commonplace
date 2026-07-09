@@ -3,9 +3,11 @@ import { Reorder, useDragControls } from "framer-motion";
 import { db, type Priority, type PriorityList } from "../../lib/db";
 import { Checkbox } from "../../components/Checkbox";
 import { Icon } from "../../components/Icon";
-import { Plus, Trash, DotsSixVertical } from "@phosphor-icons/react";
+import { Trash, DotsSixVertical } from "@phosphor-icons/react";
 import { useUndo } from "../../lib/useUndo";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
+import { FAB } from "../../components/FAB";
+import { BottomSheet } from "../../components/BottomSheet";
 
 /**
  * Priorities: two independent lists (Needs / Wants). Each is drag-reorderable
@@ -19,6 +21,7 @@ export function Priorities() {
   const [wants, setWants] = useState<Priority[]>([]);
   const [tab, setTab] = useState<PriorityList>("needs");
   const [draft, setDraft] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { pending, arm, undo, dismiss } = useUndo(() => void load());
 
   useEffect(() => {
@@ -45,12 +48,12 @@ export function Priorities() {
       createdAt: Date.now(),
     });
     setDraft("");
+    setSheetOpen(false);
     await load();
   }
 
-  async function persistOrder(_list: PriorityList, items: Priority[]) {
-    const arr = items.map((p, i) => ({ ...p, order: i }));
-    await db.priorities.bulkPut(arr);
+  async function persistOrder(items: Priority[]) {
+    await db.priorities.bulkPut(items.map((p, i) => ({ ...p, order: i })));
   }
 
   async function toggle(p: Priority) {
@@ -78,7 +81,7 @@ export function Priorities() {
   const fulfilled = list.filter((p) => p.fulfilled);
 
   return (
-    <div className="px-5 pt-20">
+    <div className="screen-pad">
       <div className="mt-4 flex rounded-full border border-taupe bg-surface p-1">
         {(["needs", "wants"] as PriorityList[]).map((k) => (
           <button
@@ -101,10 +104,12 @@ export function Priorities() {
           axis="y"
           values={open}
           onReorder={(next) => {
-            // `next` only contains open items — merge back with fulfilled so
-            // the Fulfilled section isn't dropped from state on reorder.
-            setList([...next, ...fulfilled]);
-            void persistOrder(tab, next);
+            // Merge with the fulfilled section, then stamp a fresh `order`
+            // onto the local array so subsequent toggles/loads stay in sync
+            // and the left-margin numbers never scramble.
+            const merged = [...next, ...fulfilled];
+            setList(merged.map((p, i) => ({ ...p, order: i })));
+            void persistOrder(merged);
           }}
           className="space-y-2"
         >
@@ -155,23 +160,31 @@ export function Priorities() {
         )}
       </div>
 
-      <div className="mt-6 flex items-center gap-2 rounded-xl border border-taupe bg-surface p-3 shadow-page">
+      <FAB onPress={() => setSheetOpen(true)} label="Add to priorities" />
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => {
+          setSheetOpen(false);
+          setDraft("");
+        }}
+        title={`Add to ${tab}`}
+      >
         <input
+          autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder={`Add to ${tab}`}
-          className="flex-1 bg-transparent font-sans text-base text-ink placeholder:text-softink focus:outline-none"
+          className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
         />
         <button
           type="button"
           onClick={add}
-          className="interactive flex items-center gap-1 rounded-full bg-terracotta px-3 py-1.5 font-sans text-sm font-medium text-surface"
+          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-surface"
         >
-          <Icon as={Plus} size={16} color="#FDFBF7" weight="bold" />
           Add
         </button>
-      </div>
+      </BottomSheet>
 
       <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
     </div>
@@ -192,6 +205,7 @@ function PriorityItem({ item, index, onToggle, onDelete }: PriorityItemProps) {
       value={item}
       dragListener={false}
       dragControls={controls}
+      layout
       className="flex items-center gap-2 rounded-xl border border-taupe bg-surface px-3 py-3 shadow-page"
     >
       <span className="w-6 text-center font-serif text-lg font-semibold text-ochre">

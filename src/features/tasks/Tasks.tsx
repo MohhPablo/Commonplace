@@ -4,17 +4,20 @@ import { db, type Task } from "../../lib/db";
 import { Checkbox } from "../../components/Checkbox";
 import { EmptyState } from "../../components/EmptyState";
 import { Icon } from "../../components/Icon";
-import { CheckSquareOffset, Plus, Trash, Calendar, CaretUp, CaretDown } from "@phosphor-icons/react";
+import { CheckSquareOffset, Trash, Calendar, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { formatShort, toDateInputValue } from "../../lib/date";
 import { useSwipeToDelete } from "../../lib/useSwipeToDelete";
 import { useUndo } from "../../lib/useUndo";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
+import { FAB } from "../../components/FAB";
+import { BottomSheet } from "../../components/BottomSheet";
 
 export function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { pending, arm, undo, dismiss } = useUndo(() => void load());
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export function Tasks() {
     });
     setText("");
     setDueDate(null);
+    setSheetOpen(false);
     await load();
   }
 
@@ -63,7 +67,7 @@ export function Tasks() {
   const done = tasks.filter((t) => t.completed);
 
   return (
-    <div className="px-5 pt-20">
+    <div className="screen-pad">
       {tasks.length === 0 ? (
         <EmptyState
           icon={CheckSquareOffset}
@@ -112,34 +116,41 @@ export function Tasks() {
         </>
       )}
 
-      <div className="mt-6 rounded-xl border border-taupe bg-surface p-3 shadow-page">
+      <FAB onPress={() => setSheetOpen(true)} label="Add a task" />
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => {
+          setSheetOpen(false);
+          setText("");
+          setDueDate(null);
+        }}
+        title="Add a task"
+      >
         <input
+          autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder="Add a task"
-          className="w-full bg-transparent font-sans text-base text-ink placeholder:text-softink focus:outline-none"
+          className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
         />
-        <div className="mt-2 flex items-center justify-between">
-          <label className="flex items-center gap-1.5 font-sans text-xs text-softink">
-            <Icon as={Calendar} size={15} color="#6B6058" weight="light" />
-            <input
-              type="date"
-              value={toDateInputValue(dueDate)}
-              onChange={(e) => setDueDate(e.target.value || null)}
-              className="bg-transparent text-softink focus:outline-none"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={add}
-            className="interactive flex items-center gap-1 rounded-full bg-terracotta px-3 py-1.5 font-sans text-sm font-medium text-surface"
-          >
-            <Icon as={Plus} size={16} color="#FDFBF7" weight="bold" />
-            Add
-          </button>
-        </div>
-      </div>
+        <label className="mt-3 flex items-center gap-2 font-sans text-sm text-softink">
+          <Icon as={Calendar} size={16} color="#6B6058" weight="light" />
+          <input
+            type="date"
+            value={toDateInputValue(dueDate)}
+            onChange={(e) => setDueDate(e.target.value || null)}
+            className="bg-surface text-softink focus:outline-none"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={add}
+          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-surface"
+        >
+          Add
+        </button>
+      </BottomSheet>
 
       <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
     </div>

@@ -1,31 +1,32 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { verifyPassword, resetAllData } from "../lib/auth";
+import { PinPad } from "./PinPad";
 
 const MAX_ATTEMPTS = 5;
 
 /** Full-screen gate shown when an app password is set. */
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
-  const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [attempts, setAttempts] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
+  // Bumped on each wrong attempt to remount PinPad and clear the entered digits.
+  const [dialerKey, setDialerKey] = useState(0);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await verifyPassword(value);
+  async function submit(pin: string) {
+    const ok = await verifyPassword(pin);
     if (ok) {
       onUnlock();
       return;
     }
     const next = attempts + 1;
     setAttempts(next);
-    setValue("");
     setError(
       next >= MAX_ATTEMPTS
         ? "Too many attempts. You can reset the app below."
-        : "Incorrect password.",
+        : "Incorrect PIN.",
     );
+    setDialerKey((k) => k + 1);
   }
 
   async function doReset() {
@@ -41,46 +42,39 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div
-        className="mb-8 font-serif text-3xl font-semibold"
+        className="mb-10 font-serif text-3xl font-semibold"
         style={{ color: "var(--color-ink)" }}
       >
         Commonplace<span style={{ color: "var(--color-terracotta)" }}>.</span>
       </div>
 
       {!confirmReset ? (
-        <form onSubmit={submit} className="w-full max-w-xs">
-          <input
-            type="password"
-            autoFocus
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setError("");
-            }}
-            placeholder="Password"
-            className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
-          />
+        <div className="w-full max-w-xs">
+          <p
+            className="mb-6 text-center font-sans text-sm"
+            style={{ color: "var(--color-softink)" }}
+          >
+            Enter your passcode to unlock
+          </p>
+          <PinPad key={dialerKey} length={4} onComplete={submit} disabled={!!error && attempts >= MAX_ATTEMPTS} />
           {error && (
-            <p className="mt-2 text-center font-sans text-sm" style={{ color: "var(--color-rust)" }}>
+            <p
+              className="mt-5 text-center font-sans text-sm"
+              style={{ color: "var(--color-rust)" }}
+            >
               {error}
             </p>
           )}
-          <button
-            type="submit"
-            className="interactive mt-4 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-surface"
-          >
-            Unlock
-          </button>
           {attempts >= MAX_ATTEMPTS && (
             <button
               type="button"
               onClick={() => setConfirmReset(true)}
-              className="interactive mt-4 w-full font-sans text-sm text-softink underline"
+              className="interactive mt-5 w-full font-sans text-sm text-softink underline"
             >
               Forgot password? Reset app
             </button>
           )}
-        </form>
+        </div>
       ) : (
         <div className="w-full max-w-xs text-center">
           <p className="font-sans text-sm text-ink">

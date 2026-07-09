@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "./Icon";
 import {
   Bell,
@@ -22,6 +21,8 @@ import {
 } from "../lib/notifications";
 import { getReminderTime, getTheme, setTheme, type ReminderTime, type Theme } from "../lib/settings";
 import { exportData, downloadBackup, importData } from "../lib/backup";
+import { BottomSheet } from "./BottomSheet";
+import { PinPad } from "./PinPad";
 
 interface SettingsProps {
   open: boolean;
@@ -29,71 +30,123 @@ interface SettingsProps {
   onPasswordChanged: () => void;
 }
 
+type PinMode = "idle" | "create" | "createConfirm" | "current" | "next" | "nextConfirm" | "verifyRemove";
+
 export function Settings({ open, onClose, onPasswordChanged }: SettingsProps) {
   const [hasPassword, setHasPassword] = useState(false);
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [pinMode, setPinMode] = useState<PinMode>("idle");
+  const [pinDraft, setPinDraft] = useState("");
   const [pwMsg, setPwMsg] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const [reminderTime, setReminderTimeState] = useState<ReminderTime>(null);
   const [theme, setThemeState] = useState<Theme>("paper");
   const fileRef = useRef<HTMLInputElement>(null);
+  // Bumped to remount PinPad and clear its digits between steps / wrong pins.
+  const [pinKey, setPinKey] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     setPwMsg("");
     setImportMsg("");
-    setCurrent("");
-    setNext("");
-    setConfirm("");
+    setPinDraft("");
+    setPinMode("idle");
     void isPasswordSet().then(setHasPassword);
     void getReminderTime().then(setReminderTimeState);
     void getTheme().then(setThemeState);
   }, [open]);
 
-  async function applyPassword() {
-    setPwBusy(true);
-    setPwMsg("");
-    try {
-      if (hasPassword && !(await verifyPassword(current))) {
-        setPwMsg("Current password is incorrect.");
-        return;
-      }
-      if (next.length < 4) {
-        setPwMsg("Use at least 4 characters.");
-        return;
-      }
-      if (next !== confirm) {
-        setPwMsg("New password and confirmation don't match.");
-        return;
-      }
-      await setPassword(next);
-      setHasPassword(true);
-      setCurrent("");
-      setNext("");
-      setConfirm("");
-      setPwMsg("Password saved.");
-      onPasswordChanged();
-    } finally {
-      setPwBusy(false);
-    }
+  function resetPin() {
+    setPinDraft("");
+    setPinKey((k) => k + 1);
   }
 
-  async function removePassword() {
-    setPwBusy(true);
+  function failPin(msg: string) {
+    setPinDraft("");
+    setPinKey((k) => k + 1);
+    setPwMsg(msg);
+  }
+
+  function startSet() {
     setPwMsg("");
+    setPinMode("create");
+    resetPin();
+  }
+
+  function startChange() {
+    setPwMsg("");
+    setPinMode("current");
+    resetPin();
+  }
+
+  function startRemove() {
+    setPwMsg("");
+    setPinMode("verifyRemove");
+    resetPin();
+  }
+
+  async function onPin(pin: string) {
+    setPwBusy(true);
     try {
-      if (hasPassword && !(await verifyPassword(current))) {
-        setPwMsg("Current password is incorrect.");
-        return;
+      switch (pinMode) {
+        case "create":
+          setPinDraft(pin);
+          setPinMode("createConfirm");
+          resetPin();
+          return;
+        case "createConfirm": {
+          if (pin !== pinDraft) {
+            failPin("PINs don't match. Try again.");
+            setPinMode("create");
+            return;
+          }
+          await setPassword(pin);
+          setHasPassword(true);
+          setPinMode("idle");
+          setPwMsg("Passcode saved.");
+          onPasswordChanged();
+          return;
+        }
+        case "current": {
+          if (!(await verifyPassword(pin))) {
+            failPin("Current passcode is incorrect.");
+            return;
+          }
+          setPinMode("next");
+          resetPin();
+          return;
+        }
+        case "next":
+          setPinDraft(pin);
+          setPinMode("nextConfirm");
+          resetPin();
+          return;
+        case "nextConfirm": {
+          if (pin !== pinDraft) {
+            failPin("PINs don't match. Try again.");
+            setPinMode("next");
+            return;
+          }
+          await setPassword(pin);
+          setHasPassword(true);
+          setPinMode("idle");
+          setPwMsg("Passcode saved.");
+          onPasswordChanged();
+          return;
+        }
+        case "verifyRemove": {
+          if (!(await verifyPassword(pin))) {
+            failPin("Current passcode is incorrect.");
+            return;
+          }
+          await clearPassword();
+          setHasPassword(false);
+          setPinMode("idle");
+          setPwMsg("Passcode removed.");
+          onPasswordChanged();
+          return;
+        }
       }
-      await clearPassword();
-      setHasPassword(false);
-      setCurrent("");
-      setPwMsg("Password removed.");
-      onPasswordChanged();
     } finally {
       setPwBusy(false);
     }
@@ -147,184 +200,170 @@ export function Settings({ open, onClose, onPasswordChanged }: SettingsProps) {
     }
   }
 
-  return (
-    <AnimatePresence>
-      <AnimatedSheet open={open} onClose={onClose}>
-        <h2 className="font-serif text-xl font-semibold text-ink">Settings</h2>
+  const pinPrompt: Record<PinMode, string | null> = {
+    idle: null,
+    create: "Enter a new passcode",
+    createConfirm: "Re-enter your new passcode",
+    current: "Enter your current passcode",
+    next: "Enter a new passcode",
+    nextConfirm: "Re-enter your new passcode",
+    verifyRemove: "Enter your passcode to remove it",
+  };
 
-      <section className="mt-4 rounded-xl border border-taupe bg-surface p-4 shadow-page">
-        <div className="flex items-center gap-2">
-          <Icon as={hasPassword ? Lock : LockKey} size={18} color="#C1502D" weight="duotone" />
-          <span className="font-sans text-sm font-medium text-ink">
-            {hasPassword ? "App password" : "Set app password"}
-          </span>
-        </div>
-        {hasPassword && (
-          <input
-            type="password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            placeholder="Current password"
-            className="mt-3 w-full rounded-lg border border-taupe bg-paper px-3 py-2 font-sans text-sm text-ink placeholder:text-softink focus:outline-none"
-          />
-        )}
-        <input
-          type="password"
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-          placeholder={hasPassword ? "New password" : "Password"}
-          className="mt-2 w-full rounded-lg border border-taupe bg-paper px-3 py-2 font-sans text-sm text-ink placeholder:text-softink focus:outline-none"
-        />
-        <input
-          type="password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          placeholder="Confirm password"
-          className="mt-2 w-full rounded-lg border border-taupe bg-paper px-3 py-2 font-sans text-sm text-ink placeholder:text-softink focus:outline-none"
-        />
-        {pwMsg && <p className="mt-2 font-sans text-xs text-terracotta">{pwMsg}</p>}
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            disabled={pwBusy}
-            onClick={applyPassword}
-            className="interactive flex-1 rounded-full bg-terracotta px-3 py-2 font-sans text-sm font-medium text-surface disabled:opacity-50"
-          >
-            {hasPassword ? "Change" : "Set"}
-          </button>
-          {hasPassword && (
-            <button
-              type="button"
-              disabled={pwBusy}
-              onClick={removePassword}
-              className="interactive rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink disabled:opacity-50"
-            >
-              Remove
-            </button>
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Settings">
+      <div className="max-h-[72vh] overflow-y-auto">
+        <section className="rounded-xl border border-taupe bg-surface p-4 shadow-page">
+          <div className="flex items-center gap-2">
+            <Icon as={hasPassword ? Lock : LockKey} size={18} color="#C1502D" weight="duotone" />
+            <span className="font-sans text-sm font-medium text-ink">
+              {hasPassword ? "App passcode" : "Set app passcode"}
+            </span>
+          </div>
+
+          {pinMode === "idle" ? (
+            <div className="mt-3 flex gap-2">
+              {!hasPassword && (
+                <button
+                  type="button"
+                  disabled={pwBusy}
+                  onClick={startSet}
+                  className="interactive flex-1 rounded-full bg-terracotta px-3 py-2 font-sans text-sm font-medium text-surface disabled:opacity-50"
+                >
+                  Set
+                </button>
+              )}
+              {hasPassword && (
+                <>
+                  <button
+                    type="button"
+                    disabled={pwBusy}
+                    onClick={startChange}
+                    className="interactive flex-1 rounded-full bg-terracotta px-3 py-2 font-sans text-sm font-medium text-surface disabled:opacity-50"
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pwBusy}
+                    onClick={startRemove}
+                    className="interactive rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              {pinPrompt[pinMode] && (
+                <p className="mt-3 text-center font-sans text-sm text-softink">
+                  {pinPrompt[pinMode]}
+                </p>
+              )}
+              <div className="mt-2">
+                <PinPad key={pinKey} length={4} onComplete={onPin} disabled={pwBusy} />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPinMode("idle");
+                  setPwMsg("");
+                  resetPin();
+                }}
+                className="interactive mt-2 w-full font-sans text-sm text-softink underline"
+              >
+                Cancel
+              </button>
+            </>
           )}
-        </div>
-      </section>
 
-      <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
-        <div className="flex items-center gap-2">
-          <Icon as={Bell} size={18} color="#C1502D" weight="duotone" />
-          <span className="font-sans text-sm font-medium text-ink">Notifications</span>
-        </div>
-        <label className="mt-3 flex items-center justify-between gap-3">
-          <span className="font-sans text-sm text-softink">Daily reminder</span>
-          <input
-            type="time"
-            value={reminderTime ?? ""}
-            onChange={onTimeChange}
-            className="rounded-lg border border-taupe bg-paper px-3 py-1.5 font-sans text-sm text-ink focus:outline-none"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={testNotification}
-          className="interactive mt-3 w-full rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
-        >
-          Send test notification
-        </button>
-      </section>
+          {pwMsg && <p className="mt-2 font-sans text-xs text-terracotta">{pwMsg}</p>}
+        </section>
 
-      <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
-        <div className="flex items-center gap-2">
-          <Icon as={Warning} size={18} color="#C1502D" weight="duotone" />
-          <span className="font-sans text-sm font-medium text-ink">Theme</span>
-        </div>
-        <div className="mt-3 flex gap-2">
-          {(["paper", "sepia", "dark"] as Theme[]).map((t) => (
+        <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+          <div className="flex items-center gap-2">
+            <Icon as={Bell} size={18} color="#C1502D" weight="duotone" />
+            <span className="font-sans text-sm font-medium text-ink">Notifications</span>
+          </div>
+          <label className="mt-3 flex items-center justify-between gap-3">
+            <span className="font-sans text-sm text-softink">Daily reminder</span>
+            <input
+              type="time"
+              value={reminderTime ?? ""}
+              onChange={onTimeChange}
+              className="rounded-lg border border-taupe bg-paper px-3 py-1.5 font-sans text-sm text-ink focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={testNotification}
+            className="interactive mt-3 w-full rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
+          >
+            Send test notification
+          </button>
+        </section>
+
+        <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+          <div className="flex items-center gap-2">
+            <Icon as={Warning} size={18} color="#C1502D" weight="duotone" />
+            <span className="font-sans text-sm font-medium text-ink">Theme</span>
+          </div>
+          <div className="mt-3 flex gap-2">
+            {(["paper", "sepia", "dark"] as Theme[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onThemeChange(t)}
+                aria-pressed={theme === t}
+                className="interactive flex-1 rounded-full border px-3 py-2 font-sans text-sm font-medium capitalize"
+                style={{
+                  borderColor: theme === t ? "#2B2420" : "#E4DCCB",
+                  color: theme === t ? "#2B2420" : "#6B6058",
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+          <div className="flex items-center gap-2">
+            <Icon as={DownloadSimple} size={18} color="#C1502D" weight="duotone" />
+            <span className="font-sans text-sm font-medium text-ink">Backup</span>
+          </div>
+          <div className="mt-3 flex gap-2">
             <button
-              key={t}
               type="button"
-              onClick={() => onThemeChange(t)}
-              aria-pressed={theme === t}
-              className="interactive flex-1 rounded-full border px-3 py-2 font-sans text-sm font-medium capitalize"
-              style={{
-                borderColor: theme === t ? "#2B2420" : "#E4DCCB",
-                color: theme === t ? "#2B2420" : "#6B6058",
-              }}
+              onClick={doExport}
+              className="interactive flex flex-1 items-center justify-center gap-1.5 rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
             >
-              {t}
+              <Icon as={DownloadSimple} size={15} color="#6B6058" weight="bold" /> Export
             </button>
-          ))}
-        </div>
-      </section>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="interactive flex flex-1 items-center justify-center gap-1.5 rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
+            >
+              <Icon as={UploadSimple} size={15} color="#6B6058" weight="bold" /> Import
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={onFile}
+            />
+          </div>
+          {importMsg && <p className="mt-2 font-sans text-xs text-terracotta">{importMsg}</p>}
+        </section>
 
-      <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
-        <div className="flex items-center gap-2">
-          <Icon as={DownloadSimple} size={18} color="#C1502D" weight="duotone" />
-          <span className="font-sans text-sm font-medium text-ink">Backup</span>
+        <div className="mt-4 flex items-center gap-1.5 font-sans text-xs text-softink">
+          <Icon as={Warning} size={14} color="#6B6058" weight="fill" />
+          Local-only. Resetting the app from the lock screen erases all data.
         </div>
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={doExport}
-            className="interactive flex flex-1 items-center justify-center gap-1.5 rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
-          >
-            <Icon as={DownloadSimple} size={15} color="#6B6058" weight="bold" /> Export
-          </button>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="interactive flex flex-1 items-center justify-center gap-1.5 rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
-          >
-            <Icon as={UploadSimple} size={15} color="#6B6058" weight="bold" /> Import
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={onFile}
-          />
-        </div>
-        {importMsg && <p className="mt-2 font-sans text-xs text-terracotta">{importMsg}</p>}
-      </section>
-
-      <div className="mt-4 flex items-center gap-1.5 font-sans text-xs text-softink">
-        <Icon as={Warning} size={14} color="#6B6058" weight="fill" />
-        Local-only. Resetting the app from the lock screen erases all data.
       </div>
-      </AnimatedSheet>
-    </AnimatePresence>
-  );
-}
-
-function AnimatedSheet({
-  open,
-  onClose,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 z-[9990] bg-ink/30"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}
-        />
-      )}
-      {open && (
-        <motion.div
-          initial={{ y: "100%" }}
-          animate={{ y: 0 }}
-          exit={{ y: "100%" }}
-          transition={{ type: "spring", stiffness: 320, damping: 34 }}
-          className="fixed inset-x-0 bottom-0 z-[9991] mx-auto max-w-md rounded-t-3xl border-t border-taupe bg-paper p-5 pb-8 shadow-lift"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)" }}
-        >
-          {children}
-        </motion.div>
-      )}
-    </>
+    </BottomSheet>
   );
 }

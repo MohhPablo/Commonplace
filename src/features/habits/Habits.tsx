@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { db, type Habit, type HabitLog } from "../../lib/db";
 import {
@@ -9,7 +9,7 @@ import {
 import { setBadge } from "../../lib/badge";
 import { EmptyState } from "../../components/EmptyState";
 import { Icon } from "../../components/Icon";
-import { Repeat, Plus, Trash, Bell, Check, Flame, CaretLeft, CaretRight, CaretDown } from "@phosphor-icons/react";
+import { Repeat, Trash, Bell, Check, Flame, CaretLeft, CaretRight, CaretDown } from "@phosphor-icons/react";
 import { dayKey } from "../../lib/date";
 import { requestReminderPermission, showForegroundReminder, saveReminderTime } from "../../lib/notifications";
 import { getReminderTime, type ReminderTime } from "../../lib/settings";
@@ -17,6 +17,8 @@ import { tap } from "../../lib/haptics";
 import { MonthGrid, monthLabel } from "./MonthGrid";
 import { useUndo } from "../../lib/useUndo";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
+import { FAB } from "../../components/FAB";
+import { BottomSheet } from "../../components/BottomSheet";
 
 export function Habits() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -25,6 +27,7 @@ export function Habits() {
   const [month, setMonth] = useState(() => new Date());
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [reminderTime, setReminderTimeState] = useState<ReminderTime>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { pending, arm, undo, dismiss } = useUndo(() => void load());
 
   const load = async () => {
@@ -55,6 +58,7 @@ export function Habits() {
     if (!n) return;
     await db.habits.add({ name: n, createdAt: Date.now(), archived: false });
     setName("");
+    setSheetOpen(false);
     await load();
   }
 
@@ -79,13 +83,6 @@ export function Habits() {
     await load();
   }
 
-  // In-app "today" banner: which habits still undone (ref §4.1).
-  const today = dayKey();
-  const undoneToday = useMemo(
-    () => habits.filter((h) => !isDoneOn(logs, h.id!, today)),
-    [habits, logs, today],
-  );
-
   async function enableReminders() {
     const perm = await requestReminderPermission();
     if (perm === "granted" && !reminderTime) {
@@ -109,17 +106,10 @@ export function Habits() {
     await saveReminderTime(value);
   }
 
-  return (
-    <div className="px-5 pt-20">
-      {undoneToday.length > 0 && (
-        <div className="mt-4 rounded-xl border border-taupe bg-surface px-4 py-3 shadow-page">
-          <p className="font-sans text-sm text-ink">
-            Still to do today:{" "}
-            <span className="text-ink font-medium">{undoneToday.map((h) => h.name).join(", ")}</span>
-          </p>
-        </div>
-      )}
+  const today = dayKey();
 
+  return (
+    <div className="screen-pad">
       {habits.length === 0 ? (
         <EmptyState
           icon={Repeat}
@@ -250,23 +240,31 @@ export function Habits() {
         </ul>
       )}
 
-      <div className="mt-6 flex items-center gap-2 rounded-xl border border-taupe bg-surface p-3 shadow-page">
+      <FAB onPress={() => setSheetOpen(true)} label="New habit" />
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => {
+          setSheetOpen(false);
+          setName("");
+        }}
+        title="New habit"
+      >
         <input
+          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder="New habit"
-          className="flex-1 bg-transparent font-sans text-base text-ink placeholder:text-softink focus:outline-none"
+          className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
         />
         <button
           type="button"
           onClick={add}
-          className="interactive flex items-center gap-1 rounded-full bg-terracotta px-3 py-1.5 font-sans text-sm font-medium text-surface"
+          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-surface"
         >
-          <Icon as={Plus} size={16} color="#FDFBF7" weight="bold" />
           Add
         </button>
-      </div>
+      </BottomSheet>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-taupe pt-4">
         <button

@@ -110,7 +110,7 @@ export function Review() {
   }
 
   return (
-    <div className="px-5 pt-20">
+    <div className="screen-pad">
       {/* Daily reflection */}
       <section className="mt-4 rounded-xl border border-taupe bg-surface p-4 shadow-page">
         <div className="flex items-center gap-2">

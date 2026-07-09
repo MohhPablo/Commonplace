@@ -27,6 +27,15 @@
   color-scheme: light;
 }
 
+/* Screen-level left/right padding + top clearance for the fixed native header
+   (header = safe-area-inset-top + h-16). Used by every scrollable view so the
+   content never slides under the app-bar (spec §6). */
+.screen-pad {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: calc(env(safe-area-inset-top) + 5rem);
+}
+
 /* ---- Theme variants (applied via <html data-theme="...">) ---- */
 html[data-theme="dark"] {
   --color-paper: #1c1815;

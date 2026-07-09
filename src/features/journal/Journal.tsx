@@ -103,7 +103,7 @@ export function Journal() {
   }
 
   return (
-    <div className="px-5 pt-20">
+    <div className="screen-pad">
       <div className="flex items-center justify-end">
         <button
           type="button"
@@ -185,7 +185,7 @@ interface WriteViewProps {
 
 function WriteView({ entry, saving, onChange, onBack, onDelete }: WriteViewProps) {
   return (
-    <div className="px-5 pt-20">
+    <div className="screen-pad">
       <header className="flex items-center justify-between">
         <button
           type="button"
