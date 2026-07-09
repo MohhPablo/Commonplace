@@ -110,9 +110,7 @@ export function Review() {
   }
 
   return (
-    <div className="px-5 pt-6">
-      <h1 className="font-serif text-2xl font-semibold text-ink">Review</h1>
-
+    <div className="px-5 pt-20">
       {/* Daily reflection */}
       <section className="mt-4 rounded-xl border border-taupe bg-surface p-4 shadow-page">
         <div className="flex items-center gap-2">

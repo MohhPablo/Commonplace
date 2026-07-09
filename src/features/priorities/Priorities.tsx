@@ -71,9 +71,7 @@ export function Priorities() {
   const fulfilled = list.filter((p) => p.fulfilled);
 
   return (
-    <div className="px-5 pt-6">
-      <h1 className="font-serif text-2xl font-semibold text-ink">Priorities</h1>
-
+    <div className="px-5 pt-20">
       <div className="mt-4 flex rounded-full border border-taupe bg-surface p-1">
         {(["needs", "wants"] as PriorityList[]).map((k) => (
           <button

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TabBar, type TabKey } from "./components/TabBar";
+import { TabBar, type TabKey, TABS } from "./components/TabBar";
 import { Splash } from "./components/Splash";
 import { LockScreen } from "./components/LockScreen";
 import { Settings } from "./components/Settings";
@@ -58,6 +58,7 @@ export function App() {
 
   return (
     <div className="paper-grain relative mx-auto flex min-h-dvh max-w-md flex-col">
+      <AppBar title={TABS.find((t) => t.key === active)?.label ?? "Commonplace"} onSettings={() => setSettingsOpen(true)} />
       <TodayBanner />
       <main className="flex-1 pb-24" style={{ position: "relative", zIndex: 2 }}>
         {active === "journal" && <Journal />}
@@ -67,15 +68,6 @@ export function App() {
         {active === "review" && <Review />}
       </main>
       <TabBar active={active} onChange={setActive} />
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        aria-label="Settings"
-        className="interactive fixed right-4 top-0 z-20 flex h-10 w-10 items-center justify-center rounded-full"
-        style={{ top: "env(safe-area-inset-top)" }}
-      >
-        <Icon as={Gear} size={22} color="#6B6058" weight="light" />
-      </button>
       <Splash />
       <Settings
         open={settingsOpen}
@@ -106,9 +98,33 @@ export function App() {
 }
 
 /**
+ * Fixed top app-bar (native-feel, §6). Stays stationary while content scrolls,
+ * holds the active screen title and the settings gear so the gear never
+ * overlaps per-screen action buttons (the previous "New" / reminder overlap).
+ */
+function AppBar({ title, onSettings }: { title: string; onSettings: () => void }) {
+  return (
+    <header
+      className="app-header fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-taupe bg-surface/95 px-5 backdrop-blur-sm"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
+      <h1 className="font-serif text-xl font-semibold text-ink">{title}</h1>
+      <button
+        type="button"
+        onClick={onSettings}
+        aria-label="Settings"
+        className="interactive -mr-2 flex h-10 w-10 items-center justify-center rounded-full"
+      >
+        <Icon as={Gear} size={22} color="#6B6058" weight="light" />
+      </button>
+    </header>
+  );
+}
+
+/**
  * In-app "today" reminder banner (technical ref §4.1): shown on app open for
  * habits still undone. This is the reliable, offline-only nudge — there is no
- * background scheduling in this backend-free app.
+ * background scheduling in this backend-free app. Sits below the fixed AppBar.
  */
 function TodayBanner() {
   const [undone, setUndone] = useState<string[] | null>(null);
@@ -134,8 +150,8 @@ function TodayBanner() {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 z-30 flex items-center gap-2 border-b border-taupe bg-surface/95 px-5 py-2.5 backdrop-blur-sm"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="sticky top-14 z-30 flex items-center gap-2 border-b border-taupe bg-surface/95 px-5 py-2.5 backdrop-blur-sm"
+      style={{ marginTop: "calc(env(safe-area-inset-top) + 3.5rem)" }}
     >
       <Icon as={Repeat} size={18} color="#C1502D" weight="duotone" />
       <span className="font-sans text-sm text-ink">

@@ -57,9 +57,7 @@ export function Tasks() {
   const done = tasks.filter((t) => t.completed);
 
   return (
-    <div className="px-5 pt-6">
-      <h1 className="font-serif text-2xl font-semibold text-ink">Tasks</h1>
-
+    <div className="px-5 pt-20">
       {tasks.length === 0 ? (
         <EmptyState
           icon={CheckSquareOffset}

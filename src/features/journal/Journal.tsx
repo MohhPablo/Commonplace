@@ -103,9 +103,8 @@ export function Journal() {
   }
 
   return (
-    <div className="px-5 pt-6">
-      <header className="flex items-center justify-between">
-        <h1 className="font-serif text-2xl font-semibold text-ink">Journal</h1>
+    <div className="px-5 pt-20">
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={startNew}
@@ -114,7 +113,7 @@ export function Journal() {
           <Icon as={PencilSimple} size={16} color="#FDFBF7" weight="bold" />
           New
         </button>
-      </header>
+      </div>
 
       {entries.length === 0 ? (
         <EmptyState
@@ -191,7 +190,7 @@ interface WriteViewProps {
 
 function WriteView({ entry, saving, onChange, onBack, onDelete }: WriteViewProps) {
   return (
-    <div className="px-5 pt-6">
+    <div className="px-5 pt-20">
       <header className="flex items-center justify-between">
         <button
           type="button"

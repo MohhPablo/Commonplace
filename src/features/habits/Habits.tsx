@@ -98,10 +98,8 @@ export function Habits() {
   }
 
   return (
-    <div className="px-5 pt-6">
+    <div className="px-5 pt-20">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="font-serif text-2xl font-semibold text-ink">Habits</h1>
-        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={enableReminders}
@@ -129,7 +127,6 @@ export function Habits() {
             <Icon as={Bell} size={15} color="#6B6058" weight="light" />
             Test
           </button>
-        </div>
       </div>
 
       {undoneToday.length > 0 && (
