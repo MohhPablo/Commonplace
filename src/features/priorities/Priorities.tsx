@@ -210,7 +210,7 @@ function PriorityItem({ item, index, onToggle, onDelete }: PriorityItemProps) {
         type="button"
         onPointerDown={(e) => controls.start(e)}
         aria-label="Reorder"
-        className="interactive touch-none"
+        className="touch-none"
       >
         <Icon as={DotsSixVertical} size={20} color="#6B6058" weight="light" />
       </button>
