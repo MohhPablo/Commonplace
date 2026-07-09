@@ -4,6 +4,8 @@ import { db, type Priority, type PriorityList } from "../../lib/db";
 import { Checkbox } from "../../components/Checkbox";
 import { Icon } from "../../components/Icon";
 import { Plus, Trash, DotsSixVertical } from "@phosphor-icons/react";
+import { useUndo } from "../../lib/useUndo";
+import { UndoSnackbar } from "../../components/UndoSnackbar";
 
 /**
  * Priorities: two independent lists (Needs / Wants). Each is drag-reorderable
@@ -17,6 +19,7 @@ export function Priorities() {
   const [wants, setWants] = useState<Priority[]>([]);
   const [tab, setTab] = useState<PriorityList>("needs");
   const [draft, setDraft] = useState("");
+  const { pending, arm, undo, dismiss } = useUndo(() => void load());
 
   useEffect(() => {
     void load();
@@ -61,8 +64,12 @@ export function Priorities() {
   }
 
   async function remove(id: number) {
+    const all = [...needs, ...wants];
+    const target = all.find((p) => p.id === id);
+    if (!target) return;
     await db.priorities.delete(id);
     await load();
+    void arm(`Deleted “${target.text}”`, () => db.priorities.add({ ...target }));
   }
 
   const list = tab === "needs" ? needs : wants;
@@ -138,7 +145,7 @@ export function Priorities() {
                   <span className="flex-1 truncate font-sans text-base text-softink line-through">
                     {p.text}
                   </span>
-                  <button type="button" onClick={() => remove(p.id!)} aria-label="Delete">
+                  <button type="button" onClick={() => remove(p.id!)} aria-label="Delete" className="tap-target">
                     <Icon as={Trash} size={18} color="#A8412A" weight="light" />
                   </button>
                 </li>
@@ -165,6 +172,8 @@ export function Priorities() {
           Add
         </button>
       </div>
+
+      <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
     </div>
   );
 }

@@ -7,12 +7,15 @@ import { Icon } from "../../components/Icon";
 import { CheckSquareOffset, Plus, Trash, Calendar, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { formatShort, toDateInputValue } from "../../lib/date";
 import { useSwipeToDelete } from "../../lib/useSwipeToDelete";
+import { useUndo } from "../../lib/useUndo";
+import { UndoSnackbar } from "../../components/UndoSnackbar";
 
 export function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(true);
+  const { pending, arm, undo, dismiss } = useUndo(() => void load());
 
   useEffect(() => {
     void load();
@@ -49,8 +52,11 @@ export function Tasks() {
   }
 
   async function remove(id: number) {
+    const target = tasks.find((t) => t.id === id);
+    if (!target) return;
     await db.tasks.delete(id);
     await load();
+    void arm(`Deleted “${target.text}”`, () => db.tasks.add({ ...target }));
   }
 
   const open = tasks.filter((t) => !t.completed);
@@ -134,6 +140,8 @@ export function Tasks() {
           </button>
         </div>
       </div>
+
+      <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
     </div>
   );
 }

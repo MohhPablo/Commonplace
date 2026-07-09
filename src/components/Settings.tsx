@@ -242,8 +242,8 @@ export function Settings({ open, onClose, onPasswordChanged }: SettingsProps) {
               aria-pressed={theme === t}
               className="interactive flex-1 rounded-full border px-3 py-2 font-sans text-sm font-medium capitalize"
               style={{
-                borderColor: theme === t ? "#C1502D" : "#E4DCCB",
-                color: theme === t ? "#C1502D" : "#6B6058",
+                borderColor: theme === t ? "#2B2420" : "#E4DCCB",
+                color: theme === t ? "#2B2420" : "#6B6058",
               }}
             >
               {t}

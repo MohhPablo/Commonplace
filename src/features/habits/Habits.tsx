@@ -15,6 +15,8 @@ import { requestReminderPermission, showForegroundReminder, saveReminderTime } f
 import { getReminderTime, type ReminderTime } from "../../lib/settings";
 import { tap } from "../../lib/haptics";
 import { MonthGrid, monthLabel } from "./MonthGrid";
+import { useUndo } from "../../lib/useUndo";
+import { UndoSnackbar } from "../../components/UndoSnackbar";
 
 export function Habits() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -23,6 +25,7 @@ export function Habits() {
   const [month, setMonth] = useState(() => new Date());
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [reminderTime, setReminderTimeState] = useState<ReminderTime>(null);
+  const { pending, arm, undo, dismiss } = useUndo(() => void load());
 
   const load = async () => {
     const [h, l] = await Promise.all([
@@ -56,9 +59,18 @@ export function Habits() {
   }
 
   async function remove(id: number) {
+    const habit = habits.find((h) => h.id === id);
+    if (!habit) return;
+    const relatedLogs = logs.filter((l) => l.habitId === id);
     await db.habits.delete(id);
     await db.habitLogs.where("habitId").equals(id).delete();
     await load();
+    void arm(`Deleted “${habit.name}”`, async () => {
+      const restoredId = await db.habits.add({ ...habit });
+      if (relatedLogs.length) {
+        await db.habitLogs.bulkAdd(relatedLogs.map((l) => ({ ...l, habitId: restoredId as number })));
+      }
+    });
   }
 
   async function onToggleToday(habit: Habit) {
@@ -99,41 +111,11 @@ export function Habits() {
 
   return (
     <div className="px-5 pt-20">
-      <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={enableReminders}
-            className="interactive flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-sans text-xs font-medium"
-            style={{
-              borderColor: reminderTime ? "#C1502D" : "#E4DCCB",
-              color: reminderTime ? "#C1502D" : "#6B6058",
-            }}
-          >
-            <Icon as={Bell} size={15} color={reminderTime ? "#C1502D" : "#6B6058"} weight={reminderTime ? "fill" : "light"} />
-            {reminderTime ? "Reminders on" : "Enable"}
-          </button>
-          <input
-            type="time"
-            value={reminderTime ?? ""}
-            onChange={onTimeChange}
-            aria-label="Daily reminder time"
-            className="rounded-full border border-taupe bg-surface px-3 py-1.5 font-sans text-xs text-ink focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={testReminder}
-            className="interactive flex items-center gap-1.5 rounded-full border border-taupe px-3 py-1.5 font-sans text-xs font-medium text-softink"
-          >
-            <Icon as={Bell} size={15} color="#6B6058" weight="light" />
-            Test
-          </button>
-      </div>
-
       {undoneToday.length > 0 && (
         <div className="mt-4 rounded-xl border border-taupe bg-surface px-4 py-3 shadow-page">
           <p className="font-sans text-sm text-ink">
             Still to do today:{" "}
-            <span className="text-terracotta">{undoneToday.map((h) => h.name).join(", ")}</span>
+            <span className="text-ink font-medium">{undoneToday.map((h) => h.name).join(", ")}</span>
           </p>
         </div>
       )}
@@ -206,7 +188,7 @@ export function Habits() {
                       }}
                     />
                   </button>
-                  <button type="button" onClick={() => remove(h.id!)} aria-label="Delete habit">
+                  <button type="button" onClick={() => remove(h.id!)} aria-label="Delete habit" className="tap-target">
                     <Icon as={Trash} size={18} color="#A8412A" weight="light" />
                   </button>
                 </div>
@@ -285,6 +267,38 @@ export function Habits() {
           Add
         </button>
       </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-taupe pt-4">
+        <button
+          type="button"
+          onClick={enableReminders}
+          className="interactive flex items-center gap-1.5 font-sans text-xs font-medium"
+          style={{ color: reminderTime ? "#2B2420" : "#6B6058" }}
+        >
+          <Icon as={Bell} size={15} color={reminderTime ? "#2B2420" : "#6B6058"} weight={reminderTime ? "fill" : "light"} />
+          {reminderTime ? `Reminders at ${reminderTime}` : "Enable reminders"}
+        </button>
+        {reminderTime && (
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              value={reminderTime ?? ""}
+              onChange={onTimeChange}
+              aria-label="Daily reminder time"
+              className="rounded-full border border-taupe bg-surface px-3 py-1.5 font-sans text-xs text-ink focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={testReminder}
+              className="interactive flex items-center gap-1.5 rounded-full border border-taupe px-3 py-1.5 font-sans text-xs font-medium text-softink"
+            >
+              <Icon as={Bell} size={15} color="#6B6058" weight="light" />
+              Test
+            </button>
+          </div>
+        )}
+      </div>
+      <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
     </div>
   );
 }

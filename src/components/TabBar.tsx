@@ -46,13 +46,13 @@ export function TabBar({ active, onChange }: TabBarProps) {
                 type="button"
                 onClick={() => onChange(key)}
                 aria-current={isActive ? "page" : undefined}
-                className="flex w-full flex-col items-center gap-1 py-2.5"
+                className="tap-target flex w-full flex-col items-center gap-1 py-2.5"
               >
                 <Icon as={Glyph} active={isActive} size={24} />
                 <span
                   className={[
                     "font-sans text-[11px] font-medium tracking-wide",
-                    isActive ? "text-terracotta" : "text-softink",
+                    isActive ? "text-ink" : "text-softink",
                   ].join(" ")}
                 >
                   {label}

@@ -10,7 +10,7 @@ import {
   X,
   Trash,
 } from "@phosphor-icons/react";
-import { formatDateline, formatShort } from "../../lib/date";
+import { formatDateline } from "../../lib/date";
 
 type View = "list" | "write" | "read";
 
@@ -146,25 +146,20 @@ export function Journal() {
             )}
           </div>
 
-          <ul className="mt-4 space-y-3">
+          <ul className="mt-2 divide-y divide-taupe">
             {filtered.map((e) => (
               <li key={e.id}>
                 <button
                   type="button"
                   onClick={() => openEntry(e)}
-                  className="interactive w-full rounded-xl border border-taupe bg-surface p-4 text-left shadow-page"
+                  className="interactive flex w-full items-baseline justify-between gap-4 py-4 text-left"
                 >
-                  <div className="font-serif text-base font-semibold text-ink">
+                  <span className="font-serif text-lg font-semibold text-ink">
                     {formatDateline(e.createdAt)}
-                  </div>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="font-sans text-xs text-softink">
-                      {formatShort(e.updatedAt)}
-                    </span>
-                    <span className="font-sans text-xs text-softink">
-                      {e.wordCount} {e.wordCount === 1 ? "word" : "words"}
-                    </span>
-                  </div>
+                  </span>
+                  <span className="shrink-0 font-sans text-xs text-softink">
+                    {e.wordCount} {e.wordCount === 1 ? "word" : "words"}
+                  </span>
                 </button>
               </li>
             ))}
@@ -195,7 +190,7 @@ function WriteView({ entry, saving, onChange, onBack, onDelete }: WriteViewProps
         <button
           type="button"
           onClick={onBack}
-          className="interactive font-sans text-sm font-medium text-terracotta"
+          className="interactive font-sans text-sm font-medium text-softink"
         >
           ← Entries
         </button>

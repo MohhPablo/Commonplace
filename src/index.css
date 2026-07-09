@@ -82,6 +82,31 @@ button,
   touch-action: manipulation;
 }
 
+/* Accessible focus ring for keyboard users. Replaces the global
+   `outline: none` on * with a visible, consistent ring (3:1 contrast)
+   that only appears for keyboard navigation, never on tap/click. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-terracotta);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Text/date/time inputs are bordered; keep the ring inset so it stays crisp. */
+:where(input, textarea, select):focus-visible {
+  outline-offset: -1px;
+}
+
+/* Expand the hit area of small icon-only controls to the 44px touch minimum
+   without changing their visual size (surface hardening: real touch targets). */
+.tap-target {
+  position: relative;
+}
+.tap-target::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  z-index: 0;
+}
+
 /* App feels native: no text selection, no long-press copy/callout, no context menu.
    Inputs (text fields) stay editable — see override below. */
 * {

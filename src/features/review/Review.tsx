@@ -18,7 +18,7 @@ const PROMPTS = [
 
 const MOODS = [
   { score: 1, label: "Rough", color: "#A8412A" },
-  { score: 2, label: "Low", color: "#C1502D" },
+  { score: 2, label: "Low", color: "#A8412A" },
   { score: 3, label: "Okay", color: "#C89B3C" },
   { score: 4, label: "Good", color: "#7C8A5A" },
   { score: 5, label: "Great", color: "#4B5D45" },
@@ -142,7 +142,7 @@ export function Review() {
               onClick={() => pickMood(m)}
               aria-label={m.label}
               aria-pressed={mood?.score === m.score}
-              className="interactive flex h-10 w-10 items-center justify-center rounded-full border-2"
+              className="tap-target interactive flex h-10 w-10 items-center justify-center rounded-full border-2"
               style={{
                 borderColor: mood?.score === m.score ? m.color : "#E4DCCB",
                 background: mood?.score === m.score ? m.color : "transparent",
@@ -211,7 +211,7 @@ export function Review() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-paper px-3 py-2">
-      <div className="font-serif text-xl font-semibold text-terracotta">{value}</div>
+      <div className="font-serif text-xl font-semibold text-ink">{value}</div>
       <div className="font-sans text-[11px] text-softink">{label}</div>
     </div>
   );

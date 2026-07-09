@@ -156,7 +156,7 @@ function TodayBanner() {
       <Icon as={Repeat} size={18} color="#C1502D" weight="duotone" />
       <span className="font-sans text-sm text-ink">
         {undone.length} {undone.length === 1 ? "habit" : "habits"} left today:{" "}
-        <span className="text-terracotta">{undone.join(", ")}</span>
+        <span className="text-ink font-medium">{undone.join(", ")}</span>
       </span>
     </div>
   );
