@@ -54,9 +54,9 @@ export function applyTheme(theme: Theme): void {
   document.querySelector('meta[name="theme-color"]')?.setAttribute(
     "content",
     {
-      paper: "#F2F2F5",
+      paper: "#F2F2F7",
       sepia: "#F1E4CF",
-      dark: "#101218",
+      dark: "#000000",
     }[theme],
   );
 }
@@ -68,4 +68,18 @@ export async function getOnboarded(): Promise<boolean> {
 
 export async function setOnboarded(value: boolean): Promise<void> {
   await setSetting<boolean>("onboarded", value);
+}
+
+export type WritingSize = "small" | "default" | "large";
+export const getWritingSize = () =>
+  getSetting<WritingSize>("writingSize", "default");
+export function applyWritingSize(size: WritingSize) {
+  document.documentElement.style.setProperty(
+    "--writing-size",
+    { small: "17px", default: "18px", large: "21px" }[size] ?? "18px",
+  );
+}
+export async function setWritingSize(size: WritingSize) {
+  await setSetting("writingSize", size);
+  applyWritingSize(size);
 }

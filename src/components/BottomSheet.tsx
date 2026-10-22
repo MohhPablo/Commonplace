@@ -1,4 +1,11 @@
-import { useContext, useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { ModalAvailability } from "../lib/ModalAvailability";
 import { createPortal } from "react-dom";
 import {
@@ -6,23 +13,26 @@ import {
   animate,
   motion,
   useMotionValue,
-  useDragControls,
   useReducedMotion,
 } from "framer-motion";
 import { Icon } from "./Icon";
 import { shouldDismissSheet } from "../lib/sheetGesture";
-import { X } from "@phosphor-icons/react";
+import { CaretLeft, X } from "@phosphor-icons/react";
 
 export function BottomSheet({
   open,
   onClose,
   title = "Add",
   children,
+  action,
+  page = false,
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
   children: ReactNode;
+  action?: ReactNode;
+  page?: boolean;
 }) {
   const titleId = useId();
   const available = useContext(ModalAvailability);
@@ -36,14 +46,67 @@ export function BottomSheet({
   const close = useRef(onClose);
   close.current = onClose;
   const reduced = useReducedMotion();
-  const dragControls = useDragControls();
   const y = useMotionValue(0);
   const content = useRef<HTMLDivElement>(null);
   const isVisible = useRef(visible);
   isVisible.current = visible;
 
+  const suppressClick = useRef(false);
   useEffect(() => {
-    if (!visible || !content.current) return;
+    if (visible) y.set(0);
+  }, [visible, y]);
+  const headerGesture = useRef<{
+    pointer: number;
+    start: number;
+    last: number;
+    time: number;
+  } | null>(null);
+  const reset = () => {
+    headerGesture.current = null;
+    void animate(
+      y,
+      0,
+      reduced
+        ? { duration: 0 }
+        : { type: "spring", stiffness: 400, damping: 38 },
+    );
+  };
+  const startHeader = (event: ReactPointerEvent<HTMLElement>) => {
+    if (page || event.button !== 0 || !event.isPrimary) return;
+    if ((event.target as HTMLElement).closest("button:not(.sheet-grabber)"))
+      return;
+    suppressClick.current = false;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    headerGesture.current = {
+      pointer: event.pointerId,
+      start: event.clientY,
+      last: event.clientY,
+      time: performance.now(),
+    };
+    y.stop();
+  };
+  const moveHeader = (event: ReactPointerEvent<HTMLElement>) => {
+    const gesture = headerGesture.current;
+    if (!gesture || gesture.pointer !== event.pointerId) return;
+    gesture.last = event.clientY;
+    if (Math.abs(event.clientY - gesture.start) > 8)
+      suppressClick.current = true;
+    y.set(Math.max(0, event.clientY - gesture.start) * 0.8);
+  };
+  const endHeader = () => {
+    const gesture = headerGesture.current;
+    if (!gesture) return;
+    const distance = gesture.last - gesture.start;
+    const velocity =
+      (distance / Math.max(1, performance.now() - gesture.time)) * 1000;
+    headerGesture.current = null;
+    if (shouldDismissSheet(distance, velocity, panel.current?.offsetHeight))
+      close.current();
+    reset();
+  };
+
+  useEffect(() => {
+    if (!visible || page || !content.current) return;
     const node = content.current;
     let gesture: {
       x: number;
@@ -71,7 +134,11 @@ export function BottomSheet({
       };
     };
     const move = (event: TouchEvent) => {
-      if (!gesture || event.touches.length !== 1) return;
+      if (event.touches.length !== 1) {
+        reset();
+        return;
+      }
+      if (!gesture) return;
       const dx = event.touches[0].clientX - gesture.x;
       const dy = event.touches[0].clientY - gesture.y;
       if (!gesture.dragging && (dy < -8 || Math.abs(dx) > Math.abs(dy))) {
@@ -80,13 +147,23 @@ export function BottomSheet({
       }
       if (dy > 12 && node.scrollTop <= 0) gesture.dragging = true;
       if (!gesture.dragging) return;
-      if (event.cancelable) event.preventDefault();
+      if (!event.cancelable) {
+        reset();
+        return;
+      }
+      event.preventDefault();
       gesture.distance = Math.max(0, dy);
       y.set(gesture.distance * 0.65);
     };
     const reset = () => {
       gesture = null;
-      void animate(y, 0, { type: "spring", stiffness: 400, damping: 38 });
+      void animate(
+        y,
+        0,
+        reduced
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 400, damping: 38 },
+      );
     };
     const end = () => {
       if (!gesture?.dragging) {
@@ -117,7 +194,7 @@ export function BottomSheet({
       node.removeEventListener("touchend", end);
       node.removeEventListener("touchcancel", reset);
     };
-  }, [visible, y]);
+  }, [visible, page, reduced, y]);
 
   useEffect(() => {
     if (!visible) return;
@@ -186,89 +263,101 @@ export function BottomSheet({
   return createPortal(
     <AnimatePresence>
       {visible && (
-        <div className="sheet-viewport">
+        <div className={`sheet-viewport ${page ? "sheet-page" : ""}`}>
           <motion.div
             aria-hidden="true"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => close.current()}
-            className="sheet-backdrop absolute inset-0"
+            className="sheet-backdrop"
           />
           <motion.div
-            ref={panel}
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.35 }}
-            dragMomentum={false}
-            dragSnapToOrigin
-            onDragEnd={(_event, info) => {
-              if (
-                shouldDismissSheet(
-                  info.offset.y,
-                  info.velocity.y,
-                  panel.current?.offsetHeight,
-                )
-              )
-                close.current();
-            }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            tabIndex={-1}
-            initial={{ y: reduced ? 0 : "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: reduced ? 0 : "100%" }}
-            transition={
-              reduced
-                ? { duration: 0 }
-                : { type: "spring", stiffness: 320, damping: 34 }
-            }
-            className="sheet-panel glass-sheet"
-            style={{
-              y,
-              paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)",
+            className="sheet-position"
+            initial={{ y: reduced || page ? 0 : "100%", opacity: page ? 0 : 1 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: reduced || page ? 0 : "100%", opacity: page ? 0 : 1 }}
+            transition={{
+              duration: reduced ? 0 : 0.24,
+              ease: [0.2, 0.8, 0.2, 1],
             }}
           >
-            <button
-              type="button"
-              aria-label="Drag down to close"
-              className="sheet-grabber"
-              onClick={() => close.current()}
-              onPointerDown={(event) => dragControls.start(event)}
+            <motion.div
+              ref={panel}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
+              className="sheet-panel glass-sheet"
+              style={{ y }}
             >
-              <span />
-            </button>
-            <div
-              className="sheet-heading"
-              onPointerDown={(event) => {
-                if (!(event.target as HTMLElement).closest("button"))
-                  dragControls.start(event);
-              }}
-            >
-              <h2
-                id={titleId}
-                className="text-xl font-semibold tracking-tight text-ink"
+              {!page && (
+                <button
+                  type="button"
+                  aria-label="Drag down to close"
+                  className="sheet-grabber"
+                  onClick={() => {
+                    if (!suppressClick.current) close.current();
+                    suppressClick.current = false;
+                  }}
+                  onPointerDown={startHeader}
+                  onPointerMove={moveHeader}
+                  onPointerUp={endHeader}
+                  onPointerCancel={reset}
+                >
+                  <span />
+                </button>
+              )}
+              <div
+                className="sheet-heading"
+                onPointerDown={startHeader}
+                onPointerMove={moveHeader}
+                onPointerUp={endHeader}
+                onPointerCancel={reset}
               >
-                {title}
-              </h2>
-              <button
-                type="button"
-                onClick={() => close.current()}
-                aria-label="Close"
-                className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full"
-              >
-                <Icon as={X} size={20} weight="bold" />
-              </button>
-            </div>
-            <div
-              ref={content}
-              className="sheet-content min-h-0 overflow-y-auto overscroll-contain"
-            >
-              {children}
-            </div>
+                {page && (
+                  <button
+                    type="button"
+                    className="text-action !px-0"
+                    onClick={() => close.current()}
+                    aria-label="Close Settings"
+                  >
+                    <Icon
+                      as={CaretLeft}
+                      size={21}
+                      color="var(--color-terracotta)"
+                    />{" "}
+                    Back
+                  </button>
+                )}
+                {!page && action && (
+                  <button
+                    type="button"
+                    onClick={() => close.current()}
+                    aria-label="Close"
+                    className="text-action !px-0 !font-normal"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <h2 id={titleId} className={page ? "text-center" : ""}>
+                  {title}
+                </h2>
+                {action ?? (
+                  <button
+                    type="button"
+                    onClick={() => close.current()}
+                    aria-label="Close"
+                    className="sheet-close"
+                  >
+                    {page ? "Done" : <Icon as={X} size={20} />}
+                  </button>
+                )}
+              </div>
+              <div ref={content} className="sheet-content">
+                {children}
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       )}

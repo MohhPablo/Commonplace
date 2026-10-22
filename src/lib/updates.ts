@@ -1,7 +1,7 @@
 import { flushPendingSaves } from "./autosave";
 
 export type UpdateState = {
-  status: "idle" | "checking" | "available" | "current" | "error";
+  status: "idle" | "checking" | "available" | "applying" | "current" | "error";
   message: string;
 };
 
@@ -89,6 +89,10 @@ export function createAppUpdater(save = flushPendingSaves) {
         }
         if (registration.waiting || snapshot.status === "available") {
           await save();
+          set({
+            status: "applying",
+            message: "Installing update… Your writing has been saved.",
+          });
           await activate();
         } else set({ status: "current", message: "You're up to date." });
       } catch (error) {

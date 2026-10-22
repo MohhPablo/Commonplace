@@ -68,7 +68,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       }}
     >
       <div
-        className="mb-10 font-serif text-3xl font-semibold"
+        className="mb-10 font-sans text-3xl font-semibold"
         style={{ color: "var(--color-ink)" }}
       >
         Commonplace<span style={{ color: "var(--color-terracotta)" }}>.</span>

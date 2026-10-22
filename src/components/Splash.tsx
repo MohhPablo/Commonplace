@@ -10,7 +10,7 @@ export function Splash() {
   const [show, setShow] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setShow(false), 900);
+    const t = setTimeout(() => setShow(false), 250);
     return () => clearTimeout(t);
   }, []);
 
@@ -20,10 +20,10 @@ export function Splash() {
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-paper"
           style={{
-            fontFamily: "var(--font-serif)",
+            fontFamily: "var(--font-sans)",
             fontWeight: 600,
             fontSize: 28,
             letterSpacing: "0.01em",

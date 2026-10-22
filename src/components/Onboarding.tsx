@@ -46,7 +46,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           transition={{ duration: 0.25 }}
           className="flex flex-col items-center text-center"
         >
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-surface shadow-lift">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-transparent">
             <Icon
               as={card.icon}
               size={40}
@@ -54,7 +54,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               weight="duotone"
             />
           </div>
-          <h2 className="font-serif text-2xl font-semibold text-ink">
+          <h2 className="font-sans text-2xl font-semibold text-ink">
             {card.title}
           </h2>
           <p className="mt-3 max-w-xs font-sans text-sm text-softink">
@@ -87,7 +87,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={() => (last ? onDone() : setStep((s) => s + 1))}
-          className="interactive flex items-center gap-1.5 rounded-full bg-terracotta px-5 py-2.5 font-sans text-sm font-medium text-onaccent"
+          className="interactive flex items-center gap-1.5 rounded-xl bg-terracotta px-5 py-2.5 font-sans text-sm font-medium text-onaccent"
         >
           {last ? "Get started" : "Next"}
           {!last && (

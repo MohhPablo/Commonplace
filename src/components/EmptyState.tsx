@@ -20,19 +20,15 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface shadow-page">
-        <Icon
-          as={Glyph}
-          size={30}
-          color="var(--color-terracotta)"
-          weight="duotone"
-        />
-      </div>
-      <h2 className="font-serif text-xl font-semibold text-ink">{title}</h2>
-      <p className="mt-2 max-w-xs font-sans text-sm leading-relaxed text-softink">
-        {message}
-      </p>
+    <div className="empty-state">
+      <Icon
+        as={Glyph}
+        size={38}
+        color="var(--color-softink)"
+        weight="regular"
+      />
+      <h2>{title}</h2>
+      <p>{message}</p>
       {action ? <div className="mt-6">{action}</div> : null}
     </div>
   );

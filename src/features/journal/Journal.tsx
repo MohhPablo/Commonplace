@@ -1,4 +1,11 @@
-import { lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { WritingMode } from "../../lib/WritingMode";
 import { db, type Entry } from "../../lib/db";
 import { EmptyState } from "../../components/EmptyState";
@@ -8,6 +15,7 @@ import { UndoSnackbar } from "../../components/UndoSnackbar";
 import { Icon } from "../../components/Icon";
 import {
   BookOpen,
+  CaretLeft,
   PencilSimple,
   MagnifyingGlass,
   DotsThree,
@@ -20,9 +28,9 @@ import { useQuery } from "../../lib/useQuery";
 import { useAutosave } from "../../lib/useAutosave";
 import { useUndo } from "../../lib/useUndo";
 
-const Editor = lazy(() =>
-  import("./Editor").then((module) => ({ default: module.Editor })),
-);
+const loadEditor = () =>
+  import("./Editor").then((module) => ({ default: module.Editor }));
+const Editor = lazy(loadEditor);
 const loadEntries = () => db.entries.orderBy("createdAt").reverse().toArray();
 
 export function Journal() {
@@ -31,7 +39,7 @@ export function Journal() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const creating = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setWriting(current !== null);
     return () => setWriting(false);
   }, [current, setWriting]);
@@ -40,6 +48,7 @@ export function Journal() {
   async function startNew() {
     if (creating.current) return;
     creating.current = true;
+    void loadEditor();
     setError("");
     try {
       const now = Date.now();
@@ -72,16 +81,22 @@ export function Journal() {
         />
       ) : (
         <div className="screen-pad">
-          <div className="flex items-center justify-end">
+          <div className="page-actions">
             <button
               type="button"
               onClick={startNew}
-              className="flex min-h-11 items-center gap-2 rounded-full bg-terracotta px-4 text-sm font-medium text-onaccent"
+              onPointerEnter={() => {
+                void loadEditor();
+              }}
+              onFocus={() => {
+                void loadEditor();
+              }}
+              className="text-action"
             >
               <Icon
                 as={PencilSimple}
                 size={18}
-                color="var(--color-onaccent)"
+                color="var(--color-terracotta)"
                 weight="bold"
               />{" "}
               New entry
@@ -131,12 +146,12 @@ function EntryList({
       {!error && entries.length === 0 ? (
         <EmptyState
           icon={BookOpen}
-          title="Your first blank page"
-          message="Write a thought, a memory, or a few lines about today."
+          title="Your journal starts here"
+          message="A thought, a memory, a few lines about today."
         />
       ) : (
         <>
-          <div className="mt-5 flex items-center gap-2 rounded-xl border border-taupe bg-surface px-3">
+          <div className="search-field">
             <Icon as={MagnifyingGlass} size={18} />
             <input
               type="search"
@@ -157,7 +172,7 @@ function EntryList({
               </button>
             )}
           </div>
-          <ul className="mt-2 divide-y divide-taupe">
+          <ul className="entry-list">
             {filtered.map((entry, index) => {
               const month = new Date(entry.createdAt).toLocaleDateString(
                 undefined,
@@ -172,27 +187,37 @@ function EntryList({
               return (
                 <li key={entry.id}>
                   {month !== previousMonth && (
-                    <h2 className="pt-6 pb-1 text-xs font-medium uppercase tracking-widest text-softink">
-                      {month}
-                    </h2>
+                    <h2 className="entry-month">{month}</h2>
                   )}
                   <button
                     type="button"
                     onClick={() => onOpen(entry)}
-                    className="w-full py-4 text-left"
+                    onPointerEnter={() => {
+                      void loadEditor();
+                    }}
+                    className="entry-row"
                   >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-serif text-lg font-semibold text-ink">
-                        {formatDateline(entry.createdAt)}
+                    <span className="entry-title">
+                      {entryText(entry.content).trim().slice(0, 80) ||
+                        "New entry"}
+                    </span>
+                    <span className="entry-meta">
+                      <span>
+                        {new Date(entry.createdAt).toLocaleDateString(
+                          undefined,
+                          { day: "numeric", month: "short" },
+                        )}
                       </span>
-                      <span className="shrink-0 text-xs text-softink">
+                      <span>
                         {entry.wordCount}{" "}
                         {entry.wordCount === 1 ? "word" : "words"}
                       </span>
-                    </div>
-                    <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-softink">
-                      {entryText(entry.content) || "An unwritten page"}
-                    </p>
+                    </span>
+                    {entryText(entry.content).trim().length > 80 && (
+                      <p className="entry-excerpt line-clamp-2">
+                        {entryText(entry.content).trim().slice(80)}
+                      </p>
+                    )}
                   </button>
                 </li>
               );
@@ -262,7 +287,8 @@ function WriteView({
           onClick={leave}
           className="writer-back"
         >
-          ← Entries
+          <Icon as={CaretLeft} size={22} color="var(--color-terracotta)" />{" "}
+          Entries
         </button>
         <SaveStatus
           status={status}

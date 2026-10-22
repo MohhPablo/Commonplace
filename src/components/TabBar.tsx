@@ -42,12 +42,12 @@ export function TabBar({ active, onChange }: TabBarProps) {
                 type="button"
                 onClick={() => onChange(key)}
                 aria-current={isActive ? "page" : undefined}
-                className={`tab-item tap-target flex w-full flex-col items-center gap-1 py-2.5 ${isActive ? "is-active" : ""}`}
+                className={`tab-item tap-target ${isActive ? "is-active" : ""}`}
               >
-                <Icon as={Glyph} active={isActive} size={24} />
+                <Icon as={Glyph} active={isActive} size={23} />
                 <span
                   className={[
-                    "font-sans text-[11px] font-medium tracking-wide",
+                    "font-sans font-medium",
                     isActive ? "text-terracotta" : "text-softink",
                   ].join(" ")}
                 >

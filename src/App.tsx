@@ -17,6 +17,8 @@ import {
 } from "./lib/notifications";
 import {
   applyTheme,
+  applyWritingSize,
+  getWritingSize,
   getTheme,
   getOnboarded,
   setOnboarded,
@@ -57,10 +59,16 @@ export function App() {
 
   useEffect(() => {
     let disposed = false;
-    void Promise.all([isPasswordSet(), getTheme(), getOnboarded()])
-      .then(([passcode, theme, onboarded]) => {
+    void Promise.all([
+      isPasswordSet(),
+      getTheme(),
+      getOnboarded(),
+      getWritingSize(),
+    ])
+      .then(([passcode, theme, onboarded, writingSize]) => {
         if (disposed) return;
         applyTheme(theme);
+        applyWritingSize(writingSize);
         setHasPasscode(passcode);
         setLocked(passcode);
         setSessionOpen(!passcode);
@@ -162,13 +170,7 @@ export function App() {
                     aria-hidden={locked}
                     className={`app-session ${writing ? "is-writing" : ""}`}
                   >
-                    <header
-                      className="app-header glass-toolbar flex items-center justify-between px-5"
-                      style={{
-                        paddingTop: "env(safe-area-inset-top)",
-                        height: "calc(env(safe-area-inset-top) + 3.5rem)",
-                      }}
-                    >
+                    <header className="app-header glass-toolbar flex items-center justify-between">
                       <h1 className="text-[22px] font-semibold tracking-tight text-ink">
                         {TABS.find((tab) => tab.key === active)?.label}
                       </h1>
