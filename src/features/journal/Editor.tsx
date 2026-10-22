@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
@@ -27,7 +27,7 @@ type ToolProps = {
   icon: Icon;
 };
 function Tool({
-  active = false,
+  active,
   disabled = false,
   onClick,
   label,
@@ -93,6 +93,23 @@ export function Editor({
     onUpdate: ({ editor }) =>
       onChange(editor.getJSON(), countWords(editor.getText())),
   });
+  useEffect(() => {
+    if (!editor) return;
+    let frame = 0;
+    const revealCaret = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (editor.isFocused && !editor.isDestroyed && !editor.view.composing)
+          editor.commands.scrollIntoView();
+      });
+    };
+    revealCaret();
+    window.visualViewport?.addEventListener("resize", revealCaret);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.visualViewport?.removeEventListener("resize", revealCaret);
+    };
+  }, [editor, formatting]);
   const state = useEditorState({
     editor,
     selector: ({ editor }) =>

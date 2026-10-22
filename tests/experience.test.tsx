@@ -444,3 +444,56 @@ it("saves the full-page writer before Done returns to the journal", async () => 
     "A quieter place to write",
   );
 });
+
+it("keeps an unfinished task draft after closing and reopening the sheet", async () => {
+  const user = userEvent.setup();
+  render(<Tasks />);
+  await user.click(
+    screen.getByRole("button", { name: "Add a task", exact: true }),
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Task" }),
+    "Finish this later",
+  );
+  fireEvent.change(screen.getByLabelText("Due date · optional"), {
+    target: { value: "2026-11-02" },
+  });
+  await user.click(screen.getByRole("button", { name: "Close", exact: true }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await user.click(
+    screen.getByRole("button", { name: "Add a task", exact: true }),
+  );
+  expect(screen.getByDisplayValue("Finish this later")).toBeTruthy();
+  expect(screen.getByDisplayValue("2026-11-02")).toBeTruthy();
+  await user.click(
+    screen.getByRole("button", { name: "Add task", exact: true }),
+  );
+  await waitFor(async () => expect(await db.tasks.count()).toBe(1));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await user.click(
+    screen.getByRole("button", { name: "Add a task", exact: true }),
+  );
+  expect(
+    (screen.getByRole("textbox", { name: "Task" }) as HTMLInputElement).value,
+  ).toBe("");
+});
+
+it("persists writing size and exposes the update action in Settings", async () => {
+  const user = userEvent.setup();
+  render(<Settings open onClose={() => {}} onPasswordChanged={() => {}} />);
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Writing size" }),
+    "large",
+  );
+  await waitFor(async () =>
+    expect(
+      (await db.meta.where("key").equals("setting:writingSize").first())?.value,
+    ).toBe("large"),
+  );
+  expect(
+    document.documentElement.style.getPropertyValue("--writing-size"),
+  ).toBe("21px");
+  expect(
+    screen.getByRole("button", { name: "Check for updates", exact: true }),
+  ).toBeTruthy();
+});

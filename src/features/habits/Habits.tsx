@@ -97,6 +97,7 @@ export function Habits() {
 
   return (
     <div className="screen-pad">
+      <FAB onPress={() => setSheetOpen(true)} label="New habit" />
       {!sheetOpen && <InlineError>{action.error}</InlineError>}
       {habits.length > 0 && (
         <p className="text-sm text-softink">
@@ -121,7 +122,7 @@ export function Habits() {
                 .map((l) => l.date),
             );
             return (
-              <li key={h.id} className="native-card p-4">
+              <li key={h.id} className="native-card px-3 py-2">
                 <div className="flex items-center justify-between">
                   <button
                     type="button"
@@ -158,9 +159,9 @@ export function Habits() {
                       setExpandedId((id) => (id === h.id ? null : h.id!))
                     }
                     aria-expanded={expandedId === h.id}
-                    className="interactive flex flex-1 items-center gap-3 text-left"
+                    className="interactive flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <span className="font-serif text-lg font-semibold text-ink">
+                    <span className="min-w-0 flex-1 break-words text-base font-medium text-ink">
                       {h.name}
                     </span>
                     <Icon
@@ -191,7 +192,7 @@ export function Habits() {
                   </button>
                 </div>
 
-                <div className="mt-2 flex items-center gap-1.5">
+                <div className="mb-2 ml-14 flex items-center gap-1.5">
                   <Icon
                     as={Flame}
                     size={15}
@@ -227,7 +228,7 @@ export function Habits() {
                               )
                             }
                             aria-label="Previous month"
-                            className="interactive"
+                            className="interactive tap-target flex items-center justify-center"
                           >
                             <Icon
                               as={CaretLeft}
@@ -252,7 +253,7 @@ export function Habits() {
                               )
                             }
                             aria-label="Next month"
-                            className="interactive"
+                            className="interactive tap-target flex items-center justify-center"
                           >
                             <Icon
                               as={CaretRight}
@@ -277,15 +278,23 @@ export function Habits() {
         </ul>
       )}
 
-      <FAB onPress={() => setSheetOpen(true)} label="New habit" />
       <BottomSheet
         open={sheetOpen}
         onClose={() => {
           if (action.busy) return;
           setSheetOpen(false);
-          setName("");
         }}
         title="New habit"
+        action={
+          <button
+            type="button"
+            disabled={action.busy || !name.trim()}
+            onClick={add}
+            className="sheet-action"
+          >
+            Add
+          </button>
+        }
       >
         <InlineError>{action.error}</InlineError>
         <input
@@ -297,16 +306,8 @@ export function Habits() {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) void add();
           }}
           placeholder="New habit"
-          className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
+          className="form-field"
         />
-        <button
-          type="button"
-          disabled={action.busy || !name.trim()}
-          onClick={add}
-          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-onaccent"
-        >
-          Add
-        </button>
       </BottomSheet>
 
       <p className="mt-6 border-t border-taupe pt-4 text-xs text-softink">

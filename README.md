@@ -26,10 +26,11 @@ The regression suite covers database upgrades, PIN changes, backup validation, r
 
 ## App experience
 
-- The header and glass tab bar stay anchored while each screen scrolls independently.
+- The compact header and bottom-attached tab bar surround independently scrolling content. Safe-area padding belongs to the chrome; there is no floating bottom margin.
 - Sheets close from their grabber, heading, or a downward pull on non-interactive content at the top. Scrolling and editing fields keep their usual behavior.
 - The journal opens as a full-height writing page, with a keyboard-aware toolbar, undo/redo, lists, formatting, and an optional book font. Done saves before returning to entries.
-- Settings → Update app checks for a new version, saves pending drafts, and installs the downloaded update. Failed saves or downloads leave the app open for retry.
+- Writing size (Small / Default / Large) is available in Settings. Page zoom gestures are restricted on app surfaces while text selection remains available.
+- Settings → Check for updates checks for a new version, saves pending drafts, and installs the downloaded update. Failed saves or downloads leave the app open for retry.
 
 ## Existing installations
 

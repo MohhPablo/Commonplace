@@ -72,7 +72,7 @@ export function PinPad({
             disabled={disabled}
             aria-label={`Digit ${k}`}
             onClick={() => press(k)}
-            className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface font-serif text-2xl font-semibold text-ink shadow-page transition-transform active:scale-95"
+            className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface font-sans text-2xl font-semibold text-ink transition-colors"
           >
             {k}
           </button>
@@ -83,7 +83,7 @@ export function PinPad({
           disabled={disabled}
           aria-label="Digit 0"
           onClick={() => press("0")}
-          className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface font-serif text-2xl font-semibold text-ink shadow-page transition-transform active:scale-95"
+          className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface font-sans text-2xl font-semibold text-ink transition-colors"
         >
           0
         </button>

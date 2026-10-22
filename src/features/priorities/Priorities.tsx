@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { db, type Priority, type PriorityList } from "../../lib/db";
 import { Checkbox } from "../../components/Checkbox";
@@ -28,6 +28,13 @@ export function Priorities() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Priority | null>(null);
   const action = useAction();
+  const drafts = useRef(new Map<string, string>());
+  const draftKey = editing ? String(editing.id) : `new:${tab}`;
+  const closeSheet = () => {
+    if (action.busy) return;
+    drafts.current.set(draftKey, draft);
+    setSheetOpen(false);
+  };
   const { writer: orderWriter, status } = useAutosave<Priority[]>(
     async (items) => {
       await db.transaction("rw", db.priorities, async () => {
@@ -71,6 +78,7 @@ export function Priorities() {
           fulfilledAt: null,
           createdAt: Date.now(),
         });
+      drafts.current.delete(draftKey);
       setDraft("");
       setSheetOpen(false);
       setEditing(null);
@@ -80,7 +88,7 @@ export function Priorities() {
 
   function edit(item: Priority) {
     setEditing(item);
-    setDraft(item.text);
+    setDraft(drafts.current.get(String(item.id)) ?? item.text);
     action.setError("");
     setSheetOpen(true);
   }
@@ -120,10 +128,19 @@ export function Priorities() {
   return (
     <div className="screen-pad">
       {!sheetOpen && <InlineError>{action.error}</InlineError>}
+      <FAB
+        onPress={() => {
+          setEditing(null);
+          setDraft(drafts.current.get(`new:${tab}`) ?? "");
+          action.setError("");
+          setSheetOpen(true);
+        }}
+        label="Add to priorities"
+      />
       <p className="text-sm text-softink">
         Needs come first. Wants can wait for their turn.
       </p>
-      <div className="mt-4 flex rounded-full border border-taupe bg-surface p-1">
+      <div className="segmented mt-4">
         {(["needs", "wants"] as PriorityList[]).map((k) => (
           <button
             key={k}
@@ -135,12 +152,7 @@ export function Priorities() {
                 setTab(k);
               });
             }}
-            className="interactive flex-1 rounded-full py-2 font-sans text-sm font-medium capitalize"
-            style={{
-              background: tab === k ? "var(--color-terracotta)" : "transparent",
-              color:
-                tab === k ? "var(--color-onaccent)" : "var(--color-softink)",
-            }}
+            className="capitalize"
           >
             {k}
           </button>
@@ -159,7 +171,7 @@ export function Priorities() {
             setList(merged);
             orderWriter.schedule(merged);
           }}
-          className="space-y-2"
+          className="grouped-list divide-y divide-taupe"
         >
           {open.map((p, i) => (
             <PriorityItem
@@ -242,23 +254,20 @@ export function Priorities() {
           }}
         />
       </div>
-      <FAB
-        onPress={() => {
-          setEditing(null);
-          setDraft("");
-          action.setError("");
-          setSheetOpen(true);
-        }}
-        label="Add to priorities"
-      />
       <BottomSheet
         open={sheetOpen}
-        onClose={() => {
-          if (action.busy) return;
-          setSheetOpen(false);
-          setDraft("");
-        }}
+        onClose={closeSheet}
         title={editing ? "Edit priority" : `Add to ${tab}`}
+        action={
+          <button
+            type="button"
+            disabled={action.busy || !draft.trim()}
+            onClick={add}
+            className="sheet-action"
+          >
+            {editing ? "Save changes" : "Add priority"}
+          </button>
+        }
       >
         <InlineError>{action.error}</InlineError>
         <input
@@ -270,16 +279,8 @@ export function Priorities() {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) void add();
           }}
           placeholder={`Add to ${tab}`}
-          className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
+          className="form-field"
         />
-        <button
-          type="button"
-          disabled={action.busy || !draft.trim()}
-          onClick={add}
-          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-onaccent"
-        >
-          {editing ? "Save changes" : "Add priority"}
-        </button>
         {editing && (
           <button
             type="button"
@@ -328,9 +329,9 @@ function PriorityItem({
       dragControls={controls}
       onDragEnd={onDragEnd}
       layout
-      className="flex items-center gap-2 native-card px-3 py-3"
+      className="flex items-center gap-2 bg-surface px-3 py-2"
     >
-      <span className="w-6 text-center font-serif text-lg font-semibold text-ochre">
+      <span className="w-6 text-center text-sm font-medium text-softink">
         {index}
       </span>
       <Checkbox

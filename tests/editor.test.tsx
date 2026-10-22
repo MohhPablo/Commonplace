@@ -76,3 +76,22 @@ it("formats existing entries and produces backup-compatible JSON after the edito
   expect(validateBackup(backup).entries[0].content).toEqual(content);
   editor.destroy();
 });
+
+it("uses toggle semantics only for formatting choices, not editor commands", () => {
+  render(<Editor initialContent="" onChange={vi.fn()} />);
+  expect(
+    screen
+      .getByRole("button", { name: "Formatting", exact: true })
+      .getAttribute("aria-pressed"),
+  ).toBe("false");
+  expect(
+    screen
+      .getByRole("button", { name: "Hide keyboard" })
+      .hasAttribute("aria-pressed"),
+  ).toBe(false);
+  expect(
+    screen
+      .getByRole("button", { name: "Undo typing" })
+      .hasAttribute("aria-pressed"),
+  ).toBe(false);
+});

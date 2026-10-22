@@ -8,7 +8,10 @@ export function SaveStatus({
   onRetry: () => void;
 }) {
   return (
-    <span className="font-sans text-xs text-softink" role="status">
+    <span
+      className="font-sans text-xs text-softink"
+      role={status === "error" ? "alert" : undefined}
+    >
       {status === "error" ? (
         <button
           type="button"

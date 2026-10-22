@@ -5,7 +5,6 @@ import {
   DownloadSimple,
   UploadSimple,
   Lock,
-  LockKey,
   Warning,
 } from "@phosphor-icons/react";
 import {
@@ -21,6 +20,9 @@ import {
 } from "../lib/notifications";
 import {
   getReminderTime,
+  getWritingSize,
+  setWritingSize,
+  type WritingSize,
   getTheme,
   setTheme,
   type ReminderTime,
@@ -72,6 +74,7 @@ export function Settings({
   const [importMsg, setImportMsg] = useState("");
   const [reminderTime, setReminderTimeState] = useState<ReminderTime>(null);
   const [theme, setThemeState] = useState<Theme>("paper");
+  const [writingSize, setWritingSizeState] = useState<WritingSize>("default");
   const fileRef = useRef<HTMLInputElement>(null);
   // Bumped to remount PinPad and clear its digits between steps / wrong pins.
   const [pinKey, setPinKey] = useState(0);
@@ -90,6 +93,9 @@ export function Settings({
     void getReminderTime()
       .then(setReminderTimeState)
       .catch(() => setError("Could not read reminders."));
+    void getWritingSize()
+      .then(setWritingSizeState)
+      .catch(() => setError("Could not read writing preferences."));
     void getTheme()
       .then(setThemeState)
       .catch(() => setError("Could not read appearance settings."));
@@ -285,300 +291,251 @@ export function Settings({
   return (
     <BottomSheet
       open={open}
+      page
+      title="Settings"
       onClose={() => {
         if (!pwBusy && !backupBusy) onClose();
       }}
-      title="Settings"
     >
-      <div>
-        <InlineError>{error}</InlineError>
-        <section className="settings-group">
-          <div className="flex items-center gap-2">
-            <Icon
-              as={hasPassword ? Lock : LockKey}
-              size={18}
-              color="var(--color-terracotta)"
-              weight="duotone"
-            />
-            <span className="font-sans text-sm font-medium text-ink">
-              {hasPassword ? "App passcode" : "Set app passcode"}
-            </span>
-          </div>
-
-          {pinMode === "idle" ? (
-            <div className="mt-3 flex gap-2">
-              {!hasPassword && (
+      <InlineError>{error}</InlineError>
+      <section className="settings-group">
+        <h3 className="section-title">Appearance</h3>
+        <label className="settings-row">
+          <span>Theme</span>
+          <select
+            aria-label="Theme"
+            value={theme}
+            onChange={(e) => {
+              void onThemeChange(e.target.value as Theme);
+            }}
+            className="bg-transparent text-right text-softink"
+          >
+            <option value="paper">Light</option>
+            <option value="sepia">Sepia</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <label className="settings-row border-t border-taupe">
+          <span>Writing size</span>
+          <select
+            aria-label="Writing size"
+            value={writingSize}
+            onChange={(e) => {
+              const size = e.target.value as WritingSize;
+              void setWritingSize(size)
+                .then(() => setWritingSizeState(size))
+                .catch(() => setError("Could not save writing size."));
+            }}
+            className="bg-transparent text-right text-softink"
+          >
+            <option value="small">Small</option>
+            <option value="default">Default</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+      </section>
+      <section className="settings-group">
+        <h3 className="section-title flex items-center gap-2">
+          <Icon as={Lock} size={17} /> Privacy
+        </h3>
+        {pinMode === "idle" ? (
+          <>
+            <div className="settings-row">
+              <span>App passcode</span>
+              <span className="text-sm text-softink">
+                {hasPassword ? "On" : "Off"}
+              </span>
+            </div>
+            {!hasPassword ? (
+              <button
+                type="button"
+                disabled={pwBusy}
+                onClick={startSet}
+                className="settings-link"
+              >
+                Set
+              </button>
+            ) : (
+              <div className="flex gap-6">
                 <button
                   type="button"
                   disabled={pwBusy}
-                  onClick={startSet}
-                  className="interactive flex-1 rounded-full bg-terracotta px-3 py-2 font-sans text-sm font-medium text-onaccent disabled:opacity-50"
+                  onClick={startChange}
+                  className="settings-link"
                 >
-                  Set
+                  Change
                 </button>
-              )}
-              {hasPassword && (
-                <>
-                  <button
-                    type="button"
-                    disabled={pwBusy}
-                    onClick={startChange}
-                    className="interactive flex-1 rounded-full bg-terracotta px-3 py-2 font-sans text-sm font-medium text-onaccent disabled:opacity-50"
-                  >
-                    Change
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pwBusy}
-                    onClick={startRemove}
-                    className="interactive rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink disabled:opacity-50"
-                  >
-                    Remove
-                  </button>
-                </>
-              )}
-            </div>
-          ) : (
-            <>
-              {pinPrompt[pinMode] && (
-                <p className="mt-3 text-center font-sans text-sm text-softink">
-                  {pinPrompt[pinMode]}
-                </p>
-              )}
-              <div className="mt-2">
-                <PinPad
-                  key={pinKey}
-                  length={4}
-                  onComplete={onPin}
+                <button
+                  type="button"
                   disabled={pwBusy}
-                />
+                  onClick={startRemove}
+                  className="settings-link text-rust"
+                >
+                  Remove
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setPinMode("idle");
-                  setPwMsg("");
-                  resetPin();
-                }}
-                className="interactive mt-2 w-full font-sans text-sm text-softink underline"
-              >
-                Cancel
-              </button>
-            </>
-          )}
-
-          {pwMsg && (
-            <p role="status" className="mt-2 font-sans text-xs text-terracotta">
-              {pwMsg}
+            )}
+          </>
+        ) : (
+          <>
+            <p className="mt-3 text-center text-sm text-softink">
+              {pinPrompt[pinMode]}
             </p>
-          )}
-        </section>
-
-        <section className="mt-3 settings-group">
-          <div className="flex items-center gap-2">
-            <Icon
-              as={Bell}
-              size={18}
-              color="var(--color-terracotta)"
-              weight="duotone"
-            />
-            <span className="font-sans text-sm font-medium text-ink">
-              Reminders
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-softink">
-            Reminders work while this app is open. They cannot wake a closed
-            app.
-          </p>
-          <label className="mt-3 flex items-center justify-between gap-3">
-            <span className="font-sans text-sm text-softink">
-              Daily reminder
-            </span>
-            <input
-              type="time"
-              value={reminderTime ?? ""}
-              onChange={onTimeChange}
-              className="rounded-lg border border-taupe bg-paper px-3 py-1.5 font-sans text-sm text-ink focus:outline-none"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={testNotification}
-            className="interactive mt-3 w-full rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
-          >
-            Send test notification
-          </button>
-          {reminderTime && (
+            <div className="mt-4">
+              <PinPad
+                key={pinKey}
+                length={4}
+                onComplete={onPin}
+                disabled={pwBusy}
+              />
+            </div>
             <button
               type="button"
-              className="mt-2 min-h-11 text-sm text-softink underline"
               onClick={() => {
-                void saveReminderTime(null)
-                  .then(() => setReminderTimeState(null))
-                  .catch(() => setError("Could not turn off reminders."));
+                setPinMode("idle");
+                setPwMsg("");
+                resetPin();
               }}
+              className="settings-link w-full"
             >
-              Turn off reminder
+              Cancel
             </button>
-          )}
-          {notificationMsg && (
-            <p role="status" className="mt-2 text-sm text-softink">
-              {notificationMsg}
+          </>
+        )}
+        {pwMsg && (
+          <p role="status" className="mt-2 text-sm text-softink">
+            {pwMsg}
+          </p>
+        )}
+      </section>
+      <section className="settings-group">
+        <h3 className="section-title flex items-center gap-2">
+          <Icon as={Bell} size={17} /> Reminders
+        </h3>
+        <label className="settings-row">
+          <span>Daily reminder</span>
+          <input
+            aria-label="Daily reminder"
+            type="time"
+            value={reminderTime ?? ""}
+            onChange={onTimeChange}
+            className="!w-32 rounded-lg bg-paper px-2 py-2"
+          />
+        </label>
+        <p className="mt-2 text-[13px] leading-relaxed text-softink">
+          Reminders appear while Commonplace is open. They cannot wake a closed
+          app.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void testNotification().catch(() =>
+              setError("Could not send a test reminder."),
+            );
+          }}
+          className="settings-link mt-2"
+        >
+          Send test notification
+        </button>
+        {reminderTime && (
+          <button
+            type="button"
+            className="settings-link block"
+            onClick={() => {
+              void saveReminderTime(null)
+                .then(() => setReminderTimeState(null))
+                .catch(() => setError("Could not turn off reminders."));
+            }}
+          >
+            Turn off reminder
+          </button>
+        )}
+        {notificationMsg && (
+          <p role="status" className="mt-2 text-sm text-softink">
+            {notificationMsg}
+          </p>
+        )}
+      </section>
+      <section className="settings-group">
+        <h3 className="section-title">Backup</h3>
+        <button
+          type="button"
+          disabled={backupBusy}
+          onClick={doExport}
+          className="settings-row text-terracotta"
+        >
+          <span>Export backup</span>
+          <Icon as={DownloadSimple} size={20} color="var(--color-terracotta)" />
+        </button>
+        <button
+          type="button"
+          disabled={backupBusy}
+          onClick={() => fileRef.current?.click()}
+          className="settings-row border-t border-taupe text-terracotta"
+        >
+          <span>Import backup</span>
+          <Icon as={UploadSimple} size={20} color="var(--color-terracotta)" />
+        </button>
+        <input
+          ref={fileRef}
+          aria-label="Choose a Commonplace backup"
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={onFile}
+        />
+        {pendingBackup && (
+          <div className="mt-4 rounded-xl border border-rust p-4">
+            <h3 className="text-base font-semibold">Replace current data?</h3>
+            <p className="mt-2 text-sm text-softink">
+              This backup has {pendingBackup.entries.length} journal entries,{" "}
+              {pendingBackup.tasks.length} tasks,{" "}
+              {pendingBackup.priorities.length} priorities,{" "}
+              {pendingBackup.habits.length} habits, {pendingBackup.moods.length}{" "}
+              moods and {pendingBackup.reflections.length} reflections.
+              Importing replaces all current content. Your passcode and settings
+              stay the same.
             </p>
-          )}
-        </section>
-
-        <section className="mt-3 settings-group">
-          <div className="flex items-center gap-2">
-            <Icon
-              as={Warning}
-              size={18}
-              color="var(--color-terracotta)"
-              weight="duotone"
-            />
-            <span className="font-sans text-sm font-medium text-ink">
-              Theme
-            </span>
-          </div>
-          <div className="mt-3 flex gap-2">
-            {(["paper", "sepia", "dark"] as Theme[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => onThemeChange(t)}
-                aria-pressed={theme === t}
-                className="interactive flex-1 rounded-full border px-3 py-2 font-sans text-sm font-medium capitalize"
-                style={{
-                  borderColor:
-                    theme === t
-                      ? "var(--color-terracotta)"
-                      : "var(--color-taupe)",
-                  background:
-                    theme === t ? "var(--color-terracotta)" : "transparent",
-                  color:
-                    theme === t
-                      ? "var(--color-onaccent)"
-                      : "var(--color-softink)",
-                }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-3 settings-group">
-          <div className="flex items-center gap-2">
-            <Icon
-              as={DownloadSimple}
-              size={18}
-              color="var(--color-terracotta)"
-              weight="duotone"
-            />
-            <span className="font-sans text-sm font-medium text-ink">
-              Backup
-            </span>
-          </div>
-          <div className="mt-3 flex gap-2">
             <button
               type="button"
               disabled={backupBusy}
               onClick={doExport}
-              className="interactive flex flex-1 items-center justify-center gap-1.5 rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
+              className="settings-link mt-2"
             >
-              <Icon
-                as={DownloadSimple}
-                size={15}
-                color="var(--color-softink)"
-                weight="bold"
-              />{" "}
-              Export
+              Export current data first
             </button>
-            <button
-              type="button"
-              disabled={backupBusy}
-              onClick={() => fileRef.current?.click()}
-              className="interactive flex flex-1 items-center justify-center gap-1.5 rounded-full border border-taupe px-3 py-2 font-sans text-sm font-medium text-softink"
-            >
-              <Icon
-                as={UploadSimple}
-                size={15}
-                color="var(--color-softink)"
-                weight="bold"
-              />{" "}
-              Import
-            </button>
-            <input
-              ref={fileRef}
-              aria-label="Choose a Commonplace backup"
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={onFile}
-            />
-          </div>
-          {pendingBackup && (
-            <div className="mt-4 rounded-xl border border-rust/40 p-4">
-              <h3 className="font-serif text-lg text-ink">
-                Replace current data?
-              </h3>
-              <p className="mt-2 text-sm text-softink">
-                This backup has {pendingBackup.entries.length} journal entries,{" "}
-                {pendingBackup.tasks.length} tasks,{" "}
-                {pendingBackup.priorities.length} priorities,{" "}
-                {pendingBackup.habits.length} habits,{" "}
-                {pendingBackup.moods.length} moods and{" "}
-                {pendingBackup.reflections.length} reflections. Importing
-                replaces all current content. Your passcode and settings stay
-                the same.
-              </p>
+            <div className="mt-2 flex flex-wrap gap-3">
               <button
                 type="button"
                 disabled={backupBusy}
-                onClick={doExport}
-                className="mt-3 min-h-11 text-sm text-softink underline"
+                onClick={restoreBackup}
+                className="native-primary !bg-rust"
               >
-                Export current data first
+                {backupBusy ? "Restoring…" : "Replace data"}
               </button>
-              <div className="mt-2 flex gap-3">
-                <button
-                  type="button"
-                  disabled={backupBusy}
-                  onClick={restoreBackup}
-                  className="min-h-11 rounded-full bg-rust px-4 text-sm font-medium text-onaccent"
-                >
-                  {backupBusy ? "Restoring…" : "Replace data"}
-                </button>
-                <button
-                  type="button"
-                  disabled={backupBusy}
-                  onClick={() => setPendingBackup(null)}
-                  className="min-h-11 px-3 text-sm text-softink"
-                >
-                  Cancel import
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={backupBusy}
+                onClick={() => setPendingBackup(null)}
+                className="settings-link"
+              >
+                Cancel import
+              </button>
             </div>
-          )}
-          {importMsg && (
-            <p className="mt-2 font-sans text-xs text-terracotta">
-              {importMsg}
-            </p>
-          )}
-        </section>
-
-        <AppUpdate />
-        <div className="mt-4 flex items-center gap-1.5 font-sans text-xs text-softink">
-          <Icon
-            as={Warning}
-            size={14}
-            color="var(--color-softink)"
-            weight="fill"
-          />
-          Stored on this device. The passcode hides the app; it does not encrypt
-          your data or exported backups.
-        </div>
-      </div>
+          </div>
+        )}
+        {importMsg && (
+          <p role="status" className="mt-2 text-sm text-softink">
+            {importMsg}
+          </p>
+        )}
+      </section>
+      <AppUpdate />
+      <p className="mt-6 flex items-start gap-2 text-[13px] leading-relaxed text-softink">
+        <Icon as={Warning} size={16} className="mt-0.5 shrink-0" />
+        Stored on this device. The passcode hides the app; it does not encrypt
+        your data or exported backups.
+      </p>
     </BottomSheet>
   );
 }

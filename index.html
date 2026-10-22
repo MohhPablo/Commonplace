@@ -7,12 +7,15 @@
     <!-- iOS ignores the manifest for these — must be separate (see pwa-ios-technical-reference §1a) -->
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
     <meta name="apple-mobile-web-app-title" content="Commonplace" />
-    <meta name="theme-color" content="#FAF6EF" />
+    <meta name="theme-color" content="#F2F2F7" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
     />
 
     <title>Commonplace</title>
@@ -23,7 +26,7 @@
       body {
         margin: 0;
         height: 100%;
-        background: #faf6ef;
+        background: #f2f2f7;
       }
       #boot-splash {
         position: fixed;
@@ -31,9 +34,9 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #faf6ef;
+        background: #f2f2f7;
         z-index: 9999;
-        font-family: "Fraunces", Georgia, serif;
+        font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         font-weight: 600;
         font-size: 28px;
         letter-spacing: 0.01em;

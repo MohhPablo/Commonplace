@@ -12,12 +12,7 @@ import { Icon } from "../../components/Icon";
 import { useAutosave } from "../../lib/useAutosave";
 import { SaveStatus } from "../../components/SaveStatus";
 import { InlineError } from "../../components/InlineError";
-import {
-  Notebook,
-  Sparkle,
-  SmileyMeh,
-  ChartLineUp,
-} from "@phosphor-icons/react";
+import { Notebook, SmileyMeh, ChartLineUp } from "@phosphor-icons/react";
 
 // Stable-per-day reflection prompts (index derived from day number).
 const PROMPTS = [
@@ -143,7 +138,7 @@ export function Review() {
     <div className="screen-pad">
       <InlineError>{error}</InlineError>
       {/* Daily reflection */}
-      <section className="mt-4 native-card p-4">
+      <section className="review-section">
         <div className="flex items-center gap-2">
           <Icon
             as={Notebook}
@@ -155,9 +150,7 @@ export function Review() {
             Today's reflection
           </span>
         </div>
-        <p className="mt-2 font-serif text-lg italic text-softink">
-          “{prompt}”
-        </p>
+        <p className="reflection-prompt">{prompt}</p>
         <textarea
           aria-label="Today's reflection"
           value={reflectionText}
@@ -171,20 +164,22 @@ export function Review() {
           }}
           placeholder="A few lines, just for you…"
           rows={3}
-          className="mt-3 w-full resize-none rounded-lg border border-taupe bg-paper px-3 py-2 font-sans text-sm text-ink placeholder:text-softink focus:outline-none"
+          className="reflection-input placeholder:text-softink"
         />
         <div className="mt-2 text-right">
-          <SaveStatus
-            status={status}
-            onRetry={() => {
-              void writer.flush().catch(() => {});
-            }}
-          />
+          {(dirty.current || status === "error") && (
+            <SaveStatus
+              status={status}
+              onRetry={() => {
+                void writer.flush().catch(() => {});
+              }}
+            />
+          )}
         </div>
       </section>
 
       {/* Mood */}
-      <section className="mt-3 native-card p-4">
+      <section className="review-section native-card p-4">
         <div className="flex items-center gap-2">
           <Icon
             as={SmileyMeh}
@@ -205,36 +200,20 @@ export function Review() {
               onClick={() => pickMood(m)}
               aria-label={m.label}
               aria-pressed={mood?.score === m.score}
-              className="interactive flex min-h-16 min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-1 py-2"
-              style={{
-                borderColor:
-                  mood?.score === m.score ? m.color : "var(--color-taupe)",
-                background:
-                  mood?.score === m.score ? "var(--color-ink)" : "transparent",
-              }}
+              className="mood-option"
             >
               <span
                 className="h-4 w-4 rounded-full"
                 style={{ background: m.color }}
               />
-              <span
-                className="text-xs font-medium"
-                style={{
-                  color:
-                    mood?.score === m.score
-                      ? "var(--color-paper)"
-                      : "var(--color-ink)",
-                }}
-              >
-                {m.label}
-              </span>
+              <span>{m.label}</span>
             </button>
           ))}
         </div>
       </section>
 
       {/* 7-day mood strip */}
-      <section className="mt-3 native-card p-4">
+      <section className="review-section native-card p-4">
         <span className="font-sans text-sm font-medium text-ink">
           Last 7 days
         </span>
@@ -248,19 +227,23 @@ export function Review() {
                 <span
                   role="img"
                   aria-label={`${dayKey(d)}: ${m ? MOODS[m.score - 1].label : "No mood recorded"}`}
-                  className="h-8 w-8 rounded-full"
+                  className="week-dot"
                   style={{
                     background: m
                       ? (MOODS[m.score - 1]?.color ?? "var(--color-taupe)")
-                      : "var(--color-taupe)",
-                    opacity: m ? 1 : 0.4,
+                      : "transparent",
+                    color: m ? "var(--color-surface)" : "var(--color-softink)",
+                    border: m ? "none" : "1px dashed var(--color-taupe)",
                   }}
-                />
+                >
+                  {m ? "•" : "–"}
+                </span>
                 <span className="font-sans text-[10px] text-softink">
                   {fromDayKey(dayKey(d))
                     .toLocaleDateString(undefined, { weekday: "short" })
-                    .slice(0, 1)}
+                    .slice(0, 3)}
                 </span>
+                <span className="text-[10px] text-softink">{d.getDate()}</span>
               </div>
             );
           })}
@@ -268,7 +251,7 @@ export function Review() {
       </section>
 
       {/* Insights */}
-      <section className="mt-3 native-card p-4">
+      <section className="review-section native-card p-4">
         <div className="flex items-center gap-2">
           <Icon
             as={ChartLineUp}
@@ -292,11 +275,6 @@ export function Review() {
           />
         </div>
       </section>
-
-      <div className="mt-4 flex items-center gap-1.5 font-sans text-xs text-softink">
-        <Icon as={Sparkle} size={14} color="var(--color-ochre)" weight="fill" />
-        Small steps, gently remembered.
-      </div>
     </div>
   );
 }
@@ -304,7 +282,9 @@ export function Review() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-paper px-3 py-2">
-      <div className="font-serif text-xl font-semibold text-ink">{value}</div>
+      <div className="text-2xl font-semibold tabular-nums text-ink">
+        {value}
+      </div>
       <div className="font-sans text-[11px] text-softink">{label}</div>
     </div>
   );

@@ -75,7 +75,7 @@ Tables (all in `src/lib/db.ts`). **Migrations are cumulative — never edit old 
 - **`lib/habits.ts`** — `currentStreak(habitId, logs)`, `isDoneOn(logs, habitId, key)`, `toggleToday(habit)` (transactional).
 - **`lib/auth.ts`** — password gate. `isPasswordSet()`, `setPassword()` (PBKDF2-SHA256, Web Crypto, salt stored in `meta.authHash`), `verifyPassword()`, `clearPassword()`, `resetAllData()` (wipes everything).
 - **`lib/notifications.ts`** — `requestReminderPermission()`, `showForegroundReminder()` (persistent: `requireInteraction:true`, keeps ref), `configureReminder()`/`saveReminderTime()` (foreground scheduler fires at user-chosen HH:MM while app open, lists undone habits).
-- **`lib/settings.ts`** — KV helpers `getSetting/setSetting`, plus typed `getReminderTime/setReminderTime`, `getTheme/setTheme` (`"paper"|"dark"|"sepia"`), `getOnboarded/setOnboarded`.
+- **`lib/settings.ts`** — KV helpers `getSetting/setSetting`, plus typed `getReminderTime/setReminderTime`, `getTheme/setTheme` (`"paper"|"dark"|"sepia"`), `getOnboarded/setOnboarded`, `getWritingSize/setWritingSize` (small/default/large).
 - **`lib/haptics.ts`** — `tap()` → `navigator.vibrate`. **No-op on iOS by design** (Vibration API unsupported; see technical ref §1). Safe to call anywhere.
 - **`lib/badge.ts`** — `setBadge()`/`clearBadge()` (Badging API, best-effort).
 
@@ -83,12 +83,12 @@ Tables (all in `src/lib/db.ts`). **Migrations are cumulative — never edit old 
 
 The latest user request supersedes the original paper-only direction: use an iOS-inspired glass interface with anchored chrome and a better writing experience.
 
-- Shared tokens live in `src/index.css`; light, dark, and sepia each define translucent materials, borders, and highlights. Keep terracotta as the accent and Fraunces for journal dates.
-- UI typography uses the Apple system font on Apple devices, with Inter bundled as fallback. Writing defaults to the system font with an optional book-font view.
-- `.app-frame` follows the visual viewport; `.app-session` places the header and glass capsule tab bar around an independently scrolling `.app-scroll`. The document itself must not scroll.
+- Shared tokens live in `src/index.css`; light, dark, and sepia each define translucent materials, borders, and highlights. Keep terracotta as the accent. Use system typography throughout; Fraunces is available only as an optional book-font writing view.
+- UI typography uses the Apple system font on Apple devices, with system-ui as fallback. Writing defaults to the system font with an optional book-font view.
+- `.app-frame` fills the stable layout viewport without offsets or scaling. `.app-session` places a compact header and attached tab bar around independently scrolling `.app-scroll`. `lib/viewport.ts` measures a keyboard inset for foreground panes only. The document itself must not scroll.
 - Writing mode hides the main header and tab bar. The writer has its own header, scrolling text pane, and bottom formatting dock above the keyboard.
 - All sheets share `BottomSheet`: downward header/grabber dragging, top-of-content pull dismissal, focus containment, Escape, close button, and background inertness. Never hijack text input or ordinary upward scrolling.
-- `.glass-toolbar`, `.glass-sheet`, and `.native-card` share material tokens. Reduced-transparency preferences use opaque surfaces.
+- `.glass-toolbar` and `.glass-sheet` use restrained material tokens; `.native-card` and settings groups are solid surfaces. Reduced-transparency preferences use opaque chrome.
 - `lib/updates.ts` saves drafts before explicit worker activation. Keep PWA updates prompt-based so ordinary downloads do not reload an active draft.
 
 ## iOS-specific constraints (do NOT violate)
@@ -99,7 +99,7 @@ From `pwa-ios-technical-reference.md` — these are hard limits, not preferences
 - **`navigator.vibrate` unsupported on iOS** → use motion/color feedback (haptics.ts is a safe no-op there).
 - **No native HTML5 drag-and-drop** → use Framer `Reorder` (already done in Priorities).
 - Manifest alone insufficient on iOS → separate apple-touch-icon/meta tags already in `index.html`.
-- `viewport-fit=cover` + safe-area insets; `interactive-widget=resizes-content` added to fix keyboard jump.
+- `viewport-fit=cover` + safe-area insets; `interactive-widget=resizes-content` is a browser hint; keyboard layout also uses measured VisualViewport insets.
 
 ## Features summary
 
@@ -111,7 +111,7 @@ From `pwa-ios-technical-reference.md` — these are hard limits, not preferences
 | Habits     | `features/habits/Habits.tsx` + `MonthGrid.tsx` | Add/archive with Undo; separate completion and calendar buttons; one-tap today; streak; calendar expands inline per habit (tap card); foreground reminders + time picker. |
 | Review     | `features/review/Review.tsx`                   | Daily reflection prompt (autosave), 5-point mood picker + 7-day strip, insights with explicit current-streak and seven-day labels.                                        |
 
-**Cross-cutting:** Splash (fade), password LockScreen (PBKDF2), Settings sheet (password/theme/notifications/backup/app updates), Onboarding (first-run, once), haptics on toggle, dark/sepia themes, vendor chunk splitting.
+**Cross-cutting:** Splash (fade), password LockScreen (PBKDF2), Settings page (password/theme/notifications/backup/app updates), Onboarding (first-run, once), haptics on toggle, dark/sepia themes, vendor chunk splitting.
 
 ## How to add a new feature (the proven pattern)
 
@@ -138,6 +138,6 @@ From `pwa-ios-technical-reference.md` — these are hard limits, not preferences
 - Lock initialization completes before private features first mount. After an unlocked session is backgrounded, the entire private surface is hidden from layout, focus, and accessibility while preserving in-memory drafts. The passcode is not encryption.
 - `lib/useToday.ts` refreshes daily feature state at midnight and on resume. Reminder dates use local `dayKey()`. Reminders can show an in-app banner without system notification support.
 - `BottomSheet` is a labelled modal portal with focus containment, Escape handling, background inertness, and focus restoration.
-- Theme colors use semantic CSS variables, including `--color-onaccent`. Zoom and rich-text selection are allowed; motion respects the device preference.
+- Theme colors use semantic CSS variables, including `--color-onaccent`. Page zoom gestures are restricted at the app surface as requested; rich-text selection remains enabled. Every editable field is at least 16px. Motion respects the device preference.
 - Journal lists show searchable excerpts and month groups. Tasks and priorities are editable. Mood choices have visible text labels.
 - See `README.md`, `tests/`, and `.github/workflows/check.yml` for verification and remaining real-device checks.

@@ -61,3 +61,40 @@ it("requires deliberate downward movement even for fast flicks", () => {
   expect(shouldDismissSheet(50, 1000, 500)).toBe(true);
   expect(shouldDismissSheet(130, 0, 500)).toBe(true);
 });
+
+it("cancels a content pull when a second finger interrupts it", () => {
+  const { close, surface } = setup();
+  fireEvent.touchStart(surface, { touches: [{ clientX: 100, clientY: 100 }] });
+  fireEvent.touchMove(surface, { touches: [{ clientX: 100, clientY: 230 }] });
+  fireEvent.touchMove(surface, {
+    touches: [
+      { clientX: 100, clientY: 260 },
+      { clientX: 120, clientY: 260 },
+    ],
+  });
+  fireEvent.touchEnd(surface, { touches: [] });
+  expect(close).not.toHaveBeenCalled();
+});
+
+it("dismisses from the header with pointer dragging and ignores a canceled drag", () => {
+  const { close } = setup();
+  const heading = screen.getByRole("heading", { name: "Details" });
+  const pointer = (type: string, y: number) => {
+    const event = new Event(type, { bubbles: true });
+    Object.assign(event, {
+      pointerId: 1,
+      isPrimary: true,
+      button: 0,
+      clientY: y,
+    });
+    fireEvent(heading, event);
+  };
+  pointer("pointerdown", 100);
+  pointer("pointermove", 260);
+  pointer("pointercancel", 260);
+  expect(close).not.toHaveBeenCalled();
+  pointer("pointerdown", 100);
+  pointer("pointermove", 260);
+  pointer("pointerup", 260);
+  expect(close).toHaveBeenCalledOnce();
+});

@@ -25,14 +25,16 @@ export function AppUpdate() {
         onClick={() => {
           void appUpdater.update();
         }}
-        disabled={state.status === "checking"}
-        className="native-primary mt-4 w-full"
+        disabled={state.status === "checking" || state.status === "applying"}
+        className="settings-link mt-2"
       >
         {state.status === "checking"
           ? "Checking…"
-          : state.status === "available"
-            ? "Install update"
-            : "Update app"}
+          : state.status === "applying"
+            ? "Installing…"
+            : state.status === "available"
+              ? "Install update"
+              : "Check for updates"}
       </button>
     </section>
   );
