@@ -350,7 +350,10 @@ export function BottomSheet({
                     Cancel
                   </button>
                 )}
-                <h2 id={titleId} className={page ? "text-center" : ""}>
+                <h2
+                  id={titleId}
+                  className={page || action ? "text-center" : ""}
+                >
                   {title}
                 </h2>
                 {action ?? (

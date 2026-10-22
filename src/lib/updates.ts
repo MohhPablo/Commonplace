@@ -19,8 +19,13 @@ export function createAppUpdater(save = flushPendingSaves) {
     snapshot = state;
     listeners.forEach((listener) => listener());
   };
-  const available = () =>
-    set({ status: "available", message: "A new version is ready to install." });
+  const available = () => {
+    if (snapshot.status !== "applying")
+      set({
+        status: "available",
+        message: "A new version is ready to install.",
+      });
+  };
   return {
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -35,6 +40,13 @@ export function createAppUpdater(save = flushPendingSaves) {
       if (worker.waiting) available();
     },
     available,
+    registrationFailed() {
+      set({
+        status: "error",
+        message:
+          "Updates could not connect. Check your connection and reopen the app to try again.",
+      });
+    },
     async update(): Promise<void> {
       if (pending) return;
       pending = true;
@@ -111,3 +123,83 @@ export function createAppUpdater(save = flushPendingSaves) {
 }
 
 export const appUpdater = createAppUpdater();
+
+/** Wait for the new controller, then reload only after an explicit, saved update. */
+export async function activateDownloadedUpdate(
+  registration: ServiceWorkerRegistration,
+  container: ServiceWorkerContainer,
+  loadedController: ServiceWorker | null,
+  reload: () => void,
+): Promise<void> {
+  const waiting = registration.waiting;
+  if (!waiting) {
+    // Another tab may already have activated it while this page still runs old JS.
+    if (container.controller && container.controller !== loadedController) {
+      reload();
+      return;
+    }
+    throw new Error(
+      "The update is not ready to install. Check again in a moment.",
+    );
+  }
+  const before = container.controller;
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      container.removeEventListener("controllerchange", changed);
+    };
+    const changed = () => {
+      if (!container.controller || container.controller === before) return;
+      cleanup();
+      reload();
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(
+        new Error(
+          "The update could not finish. Reopen the app, then check again.",
+        ),
+      );
+    }, 15000);
+    container.addEventListener("controllerchange", changed);
+    try {
+      waiting.postMessage({ type: "SKIP_WAITING" });
+      changed();
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+/** Native registration avoids Workbox Window's external-update reload heuristic. */
+export async function registerAppUpdates(container: ServiceWorkerContainer) {
+  const loadedController = container.controller;
+  try {
+    const registration = await container.register("/sw.js", {
+      updateViaCache: "none",
+    });
+    appUpdater.connect(registration, () =>
+      activateDownloadedUpdate(registration, container, loadedController, () =>
+        window.location.reload(),
+      ),
+    );
+    const watchInstalling = () => {
+      const worker = registration.installing;
+      if (!worker) return;
+      const changed = () => {
+        if (worker.state === "installed" && registration.waiting)
+          appUpdater.available();
+        if (["installed", "activated", "redundant"].includes(worker.state))
+          worker.removeEventListener("statechange", changed);
+      };
+      worker.addEventListener("statechange", changed);
+      changed();
+    };
+    registration.addEventListener("updatefound", watchInstalling);
+    watchInstalling();
+  } catch {
+    appUpdater.registrationFailed();
+  }
+}

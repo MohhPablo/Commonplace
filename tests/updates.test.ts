@@ -110,3 +110,44 @@ describe("app updates", () => {
     expect(updater.getSnapshot().message).toContain("aren't ready");
   });
 });
+
+it("reloads only when the explicitly installed worker takes control, including an external update", async () => {
+  const { activateDownloadedUpdate } = await import("../src/lib/updates");
+  const old = {} as ServiceWorker;
+  const next = {} as ServiceWorker;
+  const container = new EventTarget() as ServiceWorkerContainer;
+  Object.defineProperty(container, "controller", {
+    value: old,
+    configurable: true,
+  });
+  const postMessage = vi.fn();
+  const reload = vi.fn();
+  const activation = activateDownloadedUpdate(
+    worker({ waiting: { postMessage } as unknown as ServiceWorker }),
+    container,
+    old,
+    reload,
+  );
+  expect(postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
+  expect(reload).not.toHaveBeenCalled();
+  Object.defineProperty(container, "controller", { value: next });
+  container.dispatchEvent(new Event("controllerchange"));
+  await activation;
+  expect(reload).toHaveBeenCalledOnce();
+  container.dispatchEvent(new Event("controllerchange"));
+  expect(reload).toHaveBeenCalledOnce();
+});
+
+it("reloads a stale page if another tab has already activated the update", async () => {
+  const { activateDownloadedUpdate } = await import("../src/lib/updates");
+  const container = new EventTarget() as ServiceWorkerContainer;
+  Object.defineProperty(container, "controller", { value: {} });
+  const reload = vi.fn();
+  await activateDownloadedUpdate(
+    worker(),
+    container,
+    {} as ServiceWorker,
+    reload,
+  );
+  expect(reload).toHaveBeenCalledOnce();
+});

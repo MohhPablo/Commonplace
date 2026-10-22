@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { ArrowClockwise } from "@phosphor-icons/react";
+import { APP_VERSION } from "../lib/version";
 import { appUpdater } from "../lib/updates";
 import { Icon } from "./Icon";
 
@@ -36,6 +37,9 @@ export function AppUpdate() {
               ? "Install update"
               : "Check for updates"}
       </button>
+      <p className="mt-2 text-xs text-softink">
+        Commonplace {APP_VERSION}
+      </p>
     </section>
   );
 }

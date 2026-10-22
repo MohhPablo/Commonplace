@@ -246,14 +246,16 @@ export function Priorities() {
         )}
       </div>
 
-      <div className="mt-3 text-right">
-        <SaveStatus
-          status={status}
-          onRetry={() => {
-            void orderWriter.flush().catch(() => {});
-          }}
-        />
-      </div>
+      {status !== "saved" && (
+        <div className="mt-3 text-right">
+          <SaveStatus
+            status={status}
+            onRetry={() => {
+              void orderWriter.flush().catch(() => {});
+            }}
+          />
+        </div>
+      )}
       <BottomSheet
         open={sheetOpen}
         onClose={closeSheet}

@@ -6,7 +6,7 @@
 
 **Commonplace** — a private, offline-first daily companion (journal, tasks, priorities, habits) with an iOS-inspired glass interface and a quiet full-page writer. No accounts, no backend, no cloud. Installable PWA (add to Home Screen, standalone). Originally based on `daily-companion-pwa-prompt.md` + `pwa-ios-technical-reference.md` (keep those two for product/technical intent).
 
-Working name: **commonplace**. npm package name: `commonplace@0.1.0`.
+Working name: **commonplace**. npm package name: `commonplace` (see package.json for release version).
 
 ## Stack (exact)
 
@@ -89,7 +89,7 @@ The latest user request supersedes the original paper-only direction: use an iOS
 - Writing mode hides the main header and tab bar. The writer has its own header, scrolling text pane, and bottom formatting dock above the keyboard.
 - All sheets share `BottomSheet`: downward header/grabber dragging, top-of-content pull dismissal, focus containment, Escape, close button, and background inertness. Never hijack text input or ordinary upward scrolling.
 - `.glass-toolbar` and `.glass-sheet` use restrained material tokens; `.native-card` and settings groups are solid surfaces. Reduced-transparency preferences use opaque chrome.
-- `lib/updates.ts` saves drafts before explicit worker activation. Keep PWA updates prompt-based so ordinary downloads do not reload an active draft.
+- `lib/updates.ts` registers the worker directly and saves drafts before explicit activation; it waits for controllerchange before reloading, including updates activated from another tab. Keep PWA updates prompt-based so ordinary downloads do not reload an active draft.
 
 ## iOS-specific constraints (do NOT violate)
 
