@@ -5,15 +5,20 @@ import { liveQuery } from "dexie";
 export function useQuery<T>(query: () => Promise<T>, initial: T) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const subscription = liveQuery(query).subscribe({
       next: (result) => {
         setValue(result);
         setError(false);
+        setLoading(false);
       },
-      error: () => setError(true),
+      error: () => {
+        setError(true);
+        setLoading(false);
+      },
     });
     return () => subscription.unsubscribe();
   }, [query]);
-  return { value, error };
+  return { value, error, loading };
 }

@@ -25,7 +25,7 @@ import { BottomSheet } from "../../components/BottomSheet";
 const loadTasks = () => db.tasks.orderBy("createdAt").toArray();
 
 export function Tasks() {
-  const { value: tasks, error: loadError } = useQuery(loadTasks, []);
+  const { value: tasks, error: loadError, loading } = useQuery(loadTasks, []);
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [editing, setEditing] = useState<Task | null>(null);
@@ -110,7 +110,7 @@ export function Tasks() {
             ? action.error
             : null}
       </InlineError>
-      {!loadError && !tasks.length ? (
+      {!loading && !loadError && !tasks.length ? (
         <EmptyState
           icon={CheckSquareOffset}
           title="Make room for today"

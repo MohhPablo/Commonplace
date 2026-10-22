@@ -130,7 +130,13 @@ function EntryList({
   onSearch: (value: string) => void;
   onOpen: (entry: Entry) => void;
 }) {
-  const { value: entries, error } = useQuery(loadEntries, []);
+  const { value: entries, error, loading } = useQuery(loadEntries, []);
+  if (loading)
+    return (
+      <div className="h-24" role="status" aria-label="Loading entries">
+        <span className="sr-only">Loading entries…</span>
+      </div>
+    );
   const query = search.trim().toLocaleLowerCase();
   const filtered = entries.filter(
     (entry) =>
@@ -215,7 +221,7 @@ function EntryList({
                     </span>
                     {entryText(entry.content).trim().length > 80 && (
                       <p className="entry-excerpt line-clamp-2">
-                        {entryText(entry.content).trim().slice(80)}
+                        {entryText(entry.content).trim().slice(80, 260)}
                       </p>
                     )}
                   </button>
