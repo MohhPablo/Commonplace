@@ -54,9 +54,9 @@ export function applyTheme(theme: Theme): void {
   document.querySelector('meta[name="theme-color"]')?.setAttribute(
     "content",
     {
-      paper: "#FAF6EF",
+      paper: "#F2F2F5",
       sepia: "#F1E4CF",
-      dark: "#1C1815",
+      dark: "#101218",
     }[theme],
   );
 }

@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      injectRegister: false,
       includeAssets: [
         "icons/apple-touch-icon-180.png",
         "icons/icon-192.png",
@@ -25,8 +26,8 @@ export default defineConfig({
         display: "standalone",
         orientation: "portrait",
         lang: "en",
-        background_color: "#FAF6EF",
-        theme_color: "#FAF6EF",
+        background_color: "#F2F2F5",
+        theme_color: "#F2F2F5",
         icons: [
           {
             src: "icons/icon-192.png",
@@ -50,7 +51,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        skipWaiting: true,
+        skipWaiting: false,
         clientsClaim: true,
       },
       devOptions: {

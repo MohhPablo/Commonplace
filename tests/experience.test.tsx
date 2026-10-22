@@ -153,6 +153,7 @@ it("does not resurrect a journal deleted before its save timer, and Undo restore
   fireEvent.change(await screen.findByLabelText("Journal entry"), {
     target: { value: "My latest words" },
   });
+  await user.click(screen.getByLabelText("Entry options"));
   await user.click(screen.getByRole("button", { name: "Delete entry" }));
   await screen.findByText("Entry deleted");
   await act(async () => {
@@ -414,6 +415,7 @@ it("retains and saves the draft when journal deletion fails", async () => {
   vi.spyOn(db.entries, "delete").mockRejectedValueOnce(
     new Error("Storage unavailable"),
   );
+  await user.click(screen.getByLabelText("Entry options"));
   await user.click(screen.getByRole("button", { name: "Delete entry" }));
   await screen.findByText(
     "Could not delete this entry. Your draft is still here.",
@@ -423,5 +425,22 @@ it("retains and saves the draft when journal deletion fails", async () => {
   });
   expect(JSON.stringify((await db.entries.toArray())[0].content)).toContain(
     "Keep my latest draft",
+  );
+});
+
+it("saves the full-page writer before Done returns to the journal", async () => {
+  const { App } = await import("../src/App");
+  await db.meta.put({ key: "setting:onboarded", value: true });
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "New entry" }));
+  fireEvent.change(await screen.findByLabelText("Journal entry"), {
+    target: { value: "A quieter place to write" },
+  });
+  await user.click(screen.getByRole("button", { name: "Done", exact: true }));
+  await screen.findByRole("button", { name: "New entry" });
+  expect(screen.queryByLabelText("Journal entry")).toBeNull();
+  expect(JSON.stringify((await db.entries.toArray())[0].content)).toContain(
+    "A quieter place to write",
   );
 });

@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Editor as Tiptap } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { Editor } from "../src/features/journal/Editor";
@@ -21,8 +21,24 @@ it("opens existing journal JSON and exposes every formatting control", () => {
   expect(
     screen.getByRole("textbox", { name: "Journal entry" }).textContent,
   ).toBe("Existing writing");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Formatting", exact: true }),
+  );
   const toolbar = screen.getByRole("toolbar", { name: "Text formatting" });
   expect(toolbar.querySelectorAll("button").length).toBe(6);
+  fireEvent.click(screen.getByRole("button", { name: "Book font" }));
+  expect(
+    screen
+      .getByRole("button", { name: "Book font" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Formatting", exact: true }),
+  );
+  expect(screen.queryByRole("toolbar", { name: "Text formatting" })).toBeNull();
+  expect(
+    screen.getByRole("textbox", { name: "Journal entry" }).textContent,
+  ).toBe("Existing writing");
 });
 
 it("formats existing entries and produces backup-compatible JSON after the editor upgrade", () => {

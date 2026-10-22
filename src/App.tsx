@@ -22,6 +22,7 @@ import {
   setOnboarded,
 } from "./lib/settings";
 import { flushPendingSaves, hasPendingSaves } from "./lib/autosave";
+import { WritingMode } from "./lib/WritingMode";
 import { ModalAvailability } from "./lib/ModalAvailability";
 import { useToday } from "./lib/useToday";
 
@@ -41,6 +42,7 @@ const Review = lazy(() =>
 );
 
 export function App() {
+  const [writing, setWriting] = useState(false);
   const [active, setActive] = useState<TabKey>("journal");
   const [ready, setReady] = useState(false);
   const [locked, setLocked] = useState(true);
@@ -140,134 +142,144 @@ export function App() {
   return (
     <MotionConfig reducedMotion="user">
       <ModalAvailability.Provider value={!locked}>
-        <div className="paper-grain relative mx-auto min-h-dvh max-w-md">
-          <Splash />
-          {!ready ? (
-            <div className="screen-pad">
-              <p role="status" className="text-sm text-softink">
-                Opening Commonplace…
-              </p>
-              <InlineError>{error}</InlineError>
-            </div>
-          ) : (
-            <>
-              {/* After a background lock, keep the draft in memory but remove its
+        <WritingMode.Provider value={setWriting}>
+          <div className="app-frame">
+            <Splash />
+            {!ready ? (
+              <div className="screen-pad">
+                <p role="status" className="text-sm text-softink">
+                  Opening Commonplace…
+                </p>
+                <InlineError>{error}</InlineError>
+              </div>
+            ) : (
+              <>
+                {/* After a background lock, keep the draft in memory but remove its
             whole surface from layout, focus, and the accessibility tree. */}
-              {sessionOpen && (
-                <div hidden={locked} aria-hidden={locked}>
-                  <header
-                    className="app-header fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-taupe bg-surface/95 px-5 backdrop-blur-sm"
-                    style={{
-                      paddingTop: "env(safe-area-inset-top)",
-                      height: "calc(env(safe-area-inset-top) + 3.5rem)",
-                    }}
+                {sessionOpen && (
+                  <div
+                    hidden={locked}
+                    aria-hidden={locked}
+                    className={`app-session ${writing ? "is-writing" : ""}`}
                   >
-                    <h1 className="font-serif text-xl font-semibold text-ink">
-                      {TABS.find((tab) => tab.key === active)?.label}
-                    </h1>
-                    <button
-                      type="button"
-                      onClick={() => navigate("settings")}
-                      aria-label="Settings"
-                      className="tap-target -mr-2 flex items-center justify-center"
+                    <header
+                      className="app-header glass-toolbar flex items-center justify-between px-5"
+                      style={{
+                        paddingTop: "env(safe-area-inset-top)",
+                        height: "calc(env(safe-area-inset-top) + 3.5rem)",
+                      }}
                     >
-                      <Icon as={Gear} size={23} />
-                    </button>
-                  </header>
-                  <main className="relative z-[2] pb-28" key={revision}>
-                    {error && (
-                      <div className="screen-pad !pb-0">
-                        <InlineError>{error}</InlineError>
-                      </div>
-                    )}
-                    {reminder && (
-                      <div className="screen-pad">
-                        <div
-                          role="status"
-                          className="flex items-start gap-3 rounded-xl border border-taupe bg-surface p-4 text-sm text-ink"
-                        >
-                          <button
-                            type="button"
-                            className="flex-1 text-left"
-                            onClick={() => navigate("habits")}
-                          >
-                            {reminder}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setReminder("")}
-                            aria-label="Dismiss reminder"
-                            className="tap-target"
-                          >
-                            ×
-                          </button>
+                      <h1 className="text-[22px] font-semibold tracking-tight text-ink">
+                        {TABS.find((tab) => tab.key === active)?.label}
+                      </h1>
+                      <button
+                        type="button"
+                        onClick={() => navigate("settings")}
+                        aria-label="Settings"
+                        className="tap-target -mr-2 flex items-center justify-center"
+                      >
+                        <Icon as={Gear} size={23} />
+                      </button>
+                    </header>
+                    <main
+                      className="app-scroll"
+                      key={`${revision}:${active}`}
+                      aria-label={`${active} content`}
+                    >
+                      {error && (
+                        <div className="screen-pad !pb-0">
+                          <InlineError>{error}</InlineError>
                         </div>
-                      </div>
-                    )}
-                    <Suspense
-                      fallback={
-                        <p
-                          role="status"
-                          className="screen-pad text-sm text-softink"
-                        >
-                          Opening…
-                        </p>
-                      }
-                    >
-                      {active === "journal" && <Journal />}
-                      {active === "tasks" && <Tasks />}
-                      {active === "priorities" && <Priorities />}
-                      {active === "habits" && <Habits key={today} />}
-                      {active === "review" && <Review key={today} />}
-                    </Suspense>
-                  </main>
-                  <TabBar
-                    active={active}
-                    onChange={(key) => {
-                      void navigate(key);
-                    }}
-                  />
-                </div>
-              )}
-              <Settings
-                open={settingsOpen && !locked}
-                onClose={() => setSettingsOpen(false)}
-                onPasswordChanged={() => {
-                  void isPasswordSet()
-                    .then(setHasPasscode)
-                    .catch(() =>
-                      setError("Could not refresh the passcode status."),
-                    );
-                }}
-                onDataRestored={() => {
-                  setRevision((value) => value + 1);
-                  setReminder("");
-                }}
-              />
-              {locked && (
-                <LockScreen
-                  onUnlock={() => {
-                    setSessionOpen(true);
-                    setLocked(false);
-                  }}
-                />
-              )}
-              {showOnboarding && !locked && (
-                <Onboarding
-                  onDone={() => {
-                    void setOnboarded(true)
-                      .then(() => setShowOnboarding(false))
+                      )}
+                      {reminder && (
+                        <div className="screen-pad">
+                          <div
+                            role="status"
+                            className="flex items-start gap-3 rounded-xl border border-taupe bg-surface p-4 text-sm text-ink"
+                          >
+                            <button
+                              type="button"
+                              className="flex-1 text-left"
+                              onClick={() => navigate("habits")}
+                            >
+                              {reminder}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReminder("")}
+                              aria-label="Dismiss reminder"
+                              className="tap-target"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <Suspense
+                        fallback={
+                          <p
+                            role="status"
+                            className="screen-pad text-sm text-softink"
+                          >
+                            Opening…
+                          </p>
+                        }
+                      >
+                        {active === "journal" && <Journal />}
+                        {active === "tasks" && <Tasks />}
+                        {active === "priorities" && <Priorities />}
+                        {active === "habits" && <Habits key={today} />}
+                        {active === "review" && <Review key={today} />}
+                      </Suspense>
+                    </main>
+                    <TabBar
+                      active={active}
+                      onChange={(key) => {
+                        void navigate(key);
+                      }}
+                    />
+                  </div>
+                )}
+                <Settings
+                  open={settingsOpen && !locked}
+                  onClose={() => setSettingsOpen(false)}
+                  onPasswordChanged={() => {
+                    void isPasswordSet()
+                      .then(setHasPasscode)
                       .catch(() =>
-                        setError(
-                          "Could not save your preferences. Please try again.",
-                        ),
+                        setError("Could not refresh the passcode status."),
                       );
                   }}
+                  onDataRestored={() => {
+                    setRevision((value) => value + 1);
+                    setReminder("");
+                  }}
                 />
-              )}
-            </>
-          )}
-        </div>
+                {locked && (
+                  <LockScreen
+                    onUnlock={() => {
+                      setSessionOpen(true);
+                      setLocked(false);
+                    }}
+                  />
+                )}
+                {showOnboarding && !locked && (
+                  <Onboarding
+                    onDone={() => {
+                      void setOnboarded(true)
+                        .then(() => setShowOnboarding(false))
+                        .catch(() =>
+                          setError(
+                            "Could not save your preferences. Please try again.",
+                          ),
+                        );
+                    }}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </WritingMode.Provider>
       </ModalAvailability.Provider>
     </MotionConfig>
   );

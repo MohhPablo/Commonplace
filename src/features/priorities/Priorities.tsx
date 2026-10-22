@@ -328,7 +328,7 @@ function PriorityItem({
       dragControls={controls}
       onDragEnd={onDragEnd}
       layout
-      className="flex items-center gap-2 rounded-xl border border-taupe bg-surface px-3 py-3 shadow-page"
+      className="flex items-center gap-2 native-card px-3 py-3"
     >
       <span className="w-6 text-center font-serif text-lg font-semibold text-ochre">
         {index}

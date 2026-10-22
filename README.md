@@ -24,6 +24,13 @@ The regression suite covers database upgrades, PIN changes, backup validation, r
 - Reset clears all content and settings. If you forgot the passcode, only reset the app when you accept losing its local data.
 - Reminder timers work while Commonplace is open. They do not wake a closed app.
 
+## App experience
+
+- The header and glass tab bar stay anchored while each screen scrolls independently.
+- Sheets close from their grabber, heading, or a downward pull on non-interactive content at the top. Scrolling and editing fields keep their usual behavior.
+- The journal opens as a full-height writing page, with a keyboard-aware toolbar, undo/redo, lists, formatting, and an optional book font. Done saves before returning to entries.
+- Settings → Update app checks for a new version, saves pending drafts, and installs the downloaded update. Failed saves or downloads leave the app open for retry.
+
 ## Existing installations
 
 Database versions 4 and 5 repair duplicate logical keys before enforcing uniqueness. The currently effective PIN is retained, and journal/task/priority records are preserved. Older version-one backups remain supported.

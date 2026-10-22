@@ -121,10 +121,7 @@ export function Habits() {
                 .map((l) => l.date),
             );
             return (
-              <li
-                key={h.id}
-                className="rounded-xl border border-taupe bg-surface p-4 shadow-page"
-              >
+              <li key={h.id} className="native-card p-4">
                 <div className="flex items-center justify-between">
                   <button
                     type="button"

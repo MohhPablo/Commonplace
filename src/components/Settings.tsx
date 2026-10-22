@@ -35,6 +35,7 @@ import {
 import { BottomSheet } from "./BottomSheet";
 import { PinPad } from "./PinPad";
 import type { BackupData } from "../lib/db";
+import { AppUpdate } from "./AppUpdate";
 import { InlineError } from "./InlineError";
 
 interface SettingsProps {
@@ -291,7 +292,7 @@ export function Settings({
     >
       <div>
         <InlineError>{error}</InlineError>
-        <section className="rounded-xl border border-taupe bg-surface p-4 shadow-page">
+        <section className="settings-group">
           <div className="flex items-center gap-2">
             <Icon
               as={hasPassword ? Lock : LockKey}
@@ -373,7 +374,7 @@ export function Settings({
           )}
         </section>
 
-        <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+        <section className="mt-3 settings-group">
           <div className="flex items-center gap-2">
             <Icon
               as={Bell}
@@ -427,7 +428,7 @@ export function Settings({
           )}
         </section>
 
-        <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+        <section className="mt-3 settings-group">
           <div className="flex items-center gap-2">
             <Icon
               as={Warning}
@@ -466,7 +467,7 @@ export function Settings({
           </div>
         </section>
 
-        <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+        <section className="mt-3 settings-group">
           <div className="flex items-center gap-2">
             <Icon
               as={DownloadSimple}
@@ -566,6 +567,7 @@ export function Settings({
           )}
         </section>
 
+        <AppUpdate />
         <div className="mt-4 flex items-center gap-1.5 font-sans text-xs text-softink">
           <Icon
             as={Warning}

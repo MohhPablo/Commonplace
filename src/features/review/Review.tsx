@@ -143,7 +143,7 @@ export function Review() {
     <div className="screen-pad">
       <InlineError>{error}</InlineError>
       {/* Daily reflection */}
-      <section className="mt-4 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+      <section className="mt-4 native-card p-4">
         <div className="flex items-center gap-2">
           <Icon
             as={Notebook}
@@ -184,7 +184,7 @@ export function Review() {
       </section>
 
       {/* Mood */}
-      <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+      <section className="mt-3 native-card p-4">
         <div className="flex items-center gap-2">
           <Icon
             as={SmileyMeh}
@@ -234,7 +234,7 @@ export function Review() {
       </section>
 
       {/* 7-day mood strip */}
-      <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+      <section className="mt-3 native-card p-4">
         <span className="font-sans text-sm font-medium text-ink">
           Last 7 days
         </span>
@@ -268,7 +268,7 @@ export function Review() {
       </section>
 
       {/* Insights */}
-      <section className="mt-3 rounded-xl border border-taupe bg-surface p-4 shadow-page">
+      <section className="mt-3 native-card p-4">
         <div className="flex items-center gap-2">
           <Icon
             as={ChartLineUp}

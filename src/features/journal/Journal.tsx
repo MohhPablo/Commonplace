@@ -1,4 +1,5 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
+import { WritingMode } from "../../lib/WritingMode";
 import { db, type Entry } from "../../lib/db";
 import { EmptyState } from "../../components/EmptyState";
 import { InlineError } from "../../components/InlineError";
@@ -9,6 +10,7 @@ import {
   BookOpen,
   PencilSimple,
   MagnifyingGlass,
+  DotsThree,
   X,
   Trash,
 } from "@phosphor-icons/react";
@@ -24,10 +26,15 @@ const Editor = lazy(() =>
 const loadEntries = () => db.entries.orderBy("createdAt").reverse().toArray();
 
 export function Journal() {
+  const setWriting = useContext(WritingMode);
   const [current, setCurrent] = useState<Entry | null>(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const creating = useRef(false);
+  useEffect(() => {
+    setWriting(current !== null);
+    return () => setWriting(false);
+  }, [current, setWriting]);
   const undo = useUndo(() => {});
 
   async function startNew() {
@@ -247,48 +254,66 @@ function WriteView({
     }
   }
   return (
-    <div className="screen-pad">
-      <header className="flex items-center justify-between gap-2">
+    <div className="writer">
+      <header className="writer-header glass-toolbar">
         <button
           type="button"
           disabled={busy}
           onClick={leave}
-          className="min-h-11 text-sm font-medium text-softink"
+          className="writer-back"
         >
           ← Entries
         </button>
-        <div className="flex items-center gap-2">
-          <SaveStatus
-            status={status}
-            onRetry={() => {
-              void writer.flush().catch(() => {});
-            }}
-          />
+        <SaveStatus
+          status={status}
+          onRetry={() => {
+            void writer.flush().catch(() => {});
+          }}
+        />
+        <div className="flex items-center gap-1">
+          <details className="entry-menu">
+            <summary
+              aria-label="Entry options"
+              className="tap-target flex list-none items-center justify-center"
+            >
+              <Icon as={DotsThree} size={24} />
+            </summary>
+            <div className="entry-menu-panel glass-sheet">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={remove}
+                aria-label="Delete entry"
+                className="flex min-h-12 items-center gap-3 px-4 text-sm text-rust"
+              >
+                <Icon as={Trash} size={18} color="var(--color-rust)" />
+                Delete entry
+              </button>
+            </div>
+          </details>
           <button
             type="button"
             disabled={busy}
-            onClick={remove}
-            aria-label="Delete entry"
-            className="tap-target flex items-center justify-center"
+            onClick={leave}
+            className="writer-done"
           >
-            <Icon as={Trash} size={20} color="var(--color-rust)" />
+            Done
           </button>
         </div>
       </header>
       <InlineError>{error}</InlineError>
-      <h2 className="mt-3 font-serif text-xl font-semibold text-ink">
-        {formatDateline(entry.createdAt)}
-      </h2>
-      <div className="mt-4">
+      <div className="writer-body">
         <Suspense
           fallback={
-            <p role="status" className="py-6 text-sm text-softink">
+            <p role="status" className="p-6 text-sm text-softink">
               Opening your page…
             </p>
           }
         >
           <Editor
             initialContent={entry.content}
+            heading={formatDateline(entry.createdAt)}
+            wordCount={words}
             onChange={(content, wordCount) => {
               latest.current = {
                 ...latest.current,
@@ -302,9 +327,6 @@ function WriteView({
           />
         </Suspense>
       </div>
-      <p className="mt-6 text-center text-xs text-softink">
-        {words} {words === 1 ? "word" : "words"}
-      </p>
     </div>
   );
 }
