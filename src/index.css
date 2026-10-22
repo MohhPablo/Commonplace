@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-full-italic.woff2")
+    format("woff2");
+}
+
 /* ============================================================
    Warm & Editorial design system (spec §3) — tokens as CSS vars
    so they work in raw CSS (service worker, splash) and Tailwind.
@@ -11,16 +36,19 @@
   --color-softink: #6b6058; /* secondary text */
   --color-terracotta: #c1502d; /* primary accent */
   --color-sage: #4b5d45; /* habit / success */
-  --color-ochre: #c89b3c; /* streaks / highlights */
+  --color-ochre: #8e661d; /* streaks / highlights */
   --color-taupe: #e4dccb; /* dividers / hairlines */
   --color-rust: #a8412a; /* destructive / error */
+  --color-onaccent: #fffaf3;
 
   --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Warm-tinted, soft/diffuse shadow (spec §3 texture & motion) */
-  --shadow-page: 0 1px 2px rgba(43, 36, 32, 0.04), 0 6px 18px rgba(43, 36, 32, 0.08);
-  --shadow-lift: 0 2px 6px rgba(43, 36, 32, 0.06), 0 14px 30px rgba(43, 36, 32, 0.1);
+  --shadow-page:
+    0 1px 2px rgba(43, 36, 32, 0.04), 0 6px 18px rgba(43, 36, 32, 0.08);
+  --shadow-lift:
+    0 2px 6px rgba(43, 36, 32, 0.06), 0 14px 30px rgba(43, 36, 32, 0.1);
 }
 
 :root {
@@ -46,7 +74,8 @@ html[data-theme="dark"] {
   --color-sage: #7c8a5a;
   --color-ochre: #d9b35c;
   --color-taupe: #3a332c;
-  --color-rust: #d9683f;
+  --color-rust: #f18d65;
+  --color-onaccent: #21150f;
   color-scheme: dark;
 }
 
@@ -54,10 +83,10 @@ html[data-theme="sepia"] {
   --color-paper: #f1e4cf;
   --color-surface: #f7efdd;
   --color-ink: #46372a;
-  --color-softink: #8a765e;
+  --color-softink: #786047;
   --color-terracotta: #b34a28;
   --color-sage: #5d6b48;
-  --color-ochre: #b08634;
+  --color-ochre: #805d1a;
   --color-taupe: #ddc9a8;
   --color-rust: #b34a28;
   color-scheme: light;
@@ -81,8 +110,6 @@ body {
 /* Respect notch + home indicator everywhere (spec §6) */
 #root {
   min-height: 100%;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Buttons / interactive hits: no double-tap zoom, no text select on chrome */
@@ -107,37 +134,44 @@ button,
 /* Expand the hit area of small icon-only controls to the 44px touch minimum
    without changing their visual size (surface hardening: real touch targets). */
 .tap-target {
-  position: relative;
+  min-width: 44px;
+  min-height: 44px;
 }
-.tap-target::before {
-  content: "";
-  position: absolute;
-  inset: -10px;
-  z-index: 0;
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.app-header,
+.tab-bar {
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+.fab {
+  right: max(1.25rem, calc((100vw - 28rem) / 2 + 1.25rem));
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-/* App feels native: no text selection, no long-press copy/callout, no context menu.
-   Inputs (text fields) stay editable — see override below. */
-* {
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
+/* Keep chrome steady while leaving document content selectable. */
 .tab-bar,
-.app-header {
+.app-header,
+button {
   -webkit-user-select: none;
   user-select: none;
 }
-
-/* Re-enable selection only inside actual text inputs / editors. */
 input,
 textarea,
 [contenteditable="true"],
-.journal-prose {
+[contenteditable="true"] * {
   -webkit-user-select: text;
-  -webkit-touch-callout: default;
   user-select: text;
 }
 
@@ -201,4 +235,15 @@ textarea,
   color: var(--color-ink);
 }
 
-
+.journal-prose ul {
+  list-style: disc;
+}
+.journal-prose ol {
+  list-style: decimal;
+}
+.journal-prose pre {
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-surface);
+}

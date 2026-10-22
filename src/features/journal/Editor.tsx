@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   TextB,
@@ -24,7 +24,12 @@ interface ToolbarButtonProps {
   icon: Icon;
 }
 
-function ToolbarButton({ active, onClick, label, icon: Glyph }: ToolbarButtonProps) {
+function ToolbarButton({
+  active,
+  onClick,
+  label,
+  icon: Glyph,
+}: ToolbarButtonProps) {
   return (
     <button
       type="button"
@@ -32,10 +37,14 @@ function ToolbarButton({ active, onClick, label, icon: Glyph }: ToolbarButtonPro
       aria-pressed={active}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-lg"
-      style={{ background: active ? "#C1502D" : "transparent" }}
+      className="flex h-11 w-11 items-center justify-center rounded-lg"
+      style={{ background: active ? "var(--color-terracotta)" : "transparent" }}
     >
-      <Glyph size={20} color="#FDFBF7" weight="bold" />
+      <Glyph
+        size={20}
+        color={active ? "var(--color-onaccent)" : "var(--color-ink)"}
+        weight="bold"
+      />
     </button>
   );
 }
@@ -46,20 +55,25 @@ interface EditorProps {
 }
 
 /**
- * Distraction-free Tiptap editor (spec §5.1). A floating BubbleMenu appears
- * only when text is selected, offering bold/italic/heading/list/blockquote.
+ * A quiet, always-available formatting toolbar works with keyboard and touch.
  * Body line-height is generous (1.6+, §3) and uses the serif/sans pairing.
  */
 export function Editor({ initialContent, onChange }: EditorProps) {
   const editor = useEditor({
+    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
+        link: false,
+        underline: false,
       }),
     ],
     content: (initialContent as object) ?? "",
     editorProps: {
       attributes: {
+        role: "textbox",
+        "aria-label": "Journal entry",
+        "aria-multiline": "true",
         class: "journal-prose focus:outline-none min-h-[50svh]",
       },
     },
@@ -72,10 +86,10 @@ export function Editor({ initialContent, onChange }: EditorProps) {
 
   return (
     <div className="relative">
-      <BubbleMenu
-        editor={editor}
-        tippyOptions={{ duration: 120 }}
-        className="flex gap-1 rounded-xl border border-taupe bg-ink p-1 shadow-lift"
+      <div
+        role="toolbar"
+        aria-label="Text formatting"
+        className="mb-5 flex flex-wrap gap-1 rounded-xl border border-taupe bg-surface p-1"
       >
         <ToolbarButton
           label="Bold"
@@ -92,7 +106,9 @@ export function Editor({ initialContent, onChange }: EditorProps) {
         <ToolbarButton
           label="Heading"
           active={editor.isActive("heading", { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
           icon={TextHTwo}
         />
         <ToolbarButton
@@ -113,7 +129,7 @@ export function Editor({ initialContent, onChange }: EditorProps) {
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           icon={Quotes}
         />
-      </BubbleMenu>
+      </div>
       <EditorContent editor={editor} />
     </div>
   );

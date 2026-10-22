@@ -23,7 +23,10 @@ export function MonthGrid({ year, month, doneDates }: MonthGridProps) {
   return (
     <div className="grid grid-cols-7 gap-1.5">
       {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-        <div key={`h-${i}`} className="text-center font-sans text-[10px] text-softink">
+        <div
+          key={`h-${i}`}
+          className="text-center font-sans text-[10px] text-softink"
+        >
           {d}
         </div>
       ))}
@@ -37,18 +40,19 @@ export function MonthGrid({ year, month, doneDates }: MonthGridProps) {
             key={key}
             className="relative flex aspect-square items-center justify-center rounded-md"
             style={{
-              background: isToday ? "#E4DCCB" : "transparent",
-              border: isToday ? "1px solid #C1502D" : "1px solid transparent",
+              background: isToday ? "var(--color-taupe)" : "transparent",
+              border: isToday
+                ? "1px solid var(--color-terracotta)"
+                : "1px solid transparent",
             }}
           >
-            {done ? (
+            <span className="font-sans text-xs text-ink">{d}</span>
+            {done && (
               <span
-                className="h-3 w-3 rounded-full"
-                style={{ background: "#2B2420" }}
+                role="img"
                 aria-label={`Completed ${key}`}
+                className="absolute bottom-0.5 h-1.5 w-1.5 rounded-full bg-sage"
               />
-            ) : (
-              <span className="font-sans text-xs text-softink">{d}</span>
             )}
           </div>
         );

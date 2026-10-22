@@ -5,6 +5,7 @@ import { tap } from "../lib/haptics";
 
 interface CheckboxProps {
   checked: boolean;
+  disabled?: boolean;
   onChange: (next: boolean) => void;
   /** Accessible label for screen readers. */
   label?: string;
@@ -20,15 +21,18 @@ interface CheckboxProps {
  */
 export function Checkbox({
   checked,
+  disabled = false,
   onChange,
   label,
   tone = "terracotta",
   size = 24,
 }: CheckboxProps) {
-  const color = tone === "sage" ? "#4B5D45" : "#C1502D";
+  const color =
+    tone === "sage" ? "var(--color-sage)" : "var(--color-terracotta)";
   return (
     <button
       type="button"
+      disabled={disabled}
       role="checkbox"
       aria-checked={checked}
       aria-label={label}
@@ -37,12 +41,12 @@ export function Checkbox({
         onChange(!checked);
       }}
       className="interactive flex items-center justify-center rounded-full"
-      style={{ width: size, height: size }}
+      style={{ width: Math.max(44, size), height: Math.max(44, size) }}
     >
       <motion.span
         className="flex items-center justify-center rounded-full border-2"
         animate={{
-          borderColor: checked ? color : "#E4DCCB",
+          borderColor: checked ? color : "var(--color-taupe)",
           backgroundColor: checked ? color : "rgba(0,0,0,0)",
         }}
         transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -53,7 +57,12 @@ export function Checkbox({
           animate={{ scale: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
           transition={{ type: "spring", stiffness: 600, damping: 22 }}
         >
-          <Icon as={Check} weight="bold" size={size * 0.62} color="#FDFBF7" />
+          <Icon
+            as={Check}
+            weight="bold"
+            size={size * 0.62}
+            color="var(--color-onaccent)"
+          />
         </motion.span>
       </motion.span>
     </button>

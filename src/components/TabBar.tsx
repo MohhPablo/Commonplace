@@ -6,17 +6,10 @@ import {
   ListNumbers,
   Repeat,
   Pulse,
-  Gear,
   type IconProps,
 } from "@phosphor-icons/react";
 
-export type TabKey =
-  | "journal"
-  | "tasks"
-  | "priorities"
-  | "habits"
-  | "review"
-  | "settings";
+export type TabKey = "journal" | "tasks" | "priorities" | "habits" | "review";
 
 interface TabDef {
   key: TabKey;
@@ -30,7 +23,6 @@ export const TABS: TabDef[] = [
   { key: "priorities", label: "Priorities", Icon: ListNumbers },
   { key: "habits", label: "Habits", Icon: Repeat },
   { key: "review", label: "Review", Icon: Pulse },
-  { key: "settings", label: "Settings", Icon: Gear },
 ];
 
 interface TabBarProps {

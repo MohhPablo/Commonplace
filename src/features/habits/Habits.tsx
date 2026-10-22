@@ -1,23 +1,27 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { db, type Habit, type HabitLog } from "../../lib/db";
-import {
-  currentStreak,
-  isDoneOn,
-  toggleToday,
-} from "../../lib/habits";
+import { currentStreak, isDoneOn, toggleToday } from "../../lib/habits";
 import { setBadge } from "../../lib/badge";
 import { EmptyState } from "../../components/EmptyState";
 import { Icon } from "../../components/Icon";
-import { Repeat, Trash, Bell, Check, Flame, CaretLeft, CaretRight, CaretDown } from "@phosphor-icons/react";
+import {
+  Repeat,
+  Trash,
+  Check,
+  Flame,
+  CaretLeft,
+  CaretRight,
+  CaretDown,
+} from "@phosphor-icons/react";
 import { dayKey } from "../../lib/date";
-import { requestReminderPermission, showForegroundReminder, saveReminderTime } from "../../lib/notifications";
-import { getReminderTime, type ReminderTime } from "../../lib/settings";
 import { tap } from "../../lib/haptics";
 import { MonthGrid, monthLabel } from "./MonthGrid";
 import { useUndo } from "../../lib/useUndo";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
 import { FAB } from "../../components/FAB";
+import { useAction } from "../../lib/useAction";
+import { InlineError } from "../../components/InlineError";
 import { BottomSheet } from "../../components/BottomSheet";
 
 export function Habits() {
@@ -26,9 +30,13 @@ export function Habits() {
   const [name, setName] = useState("");
   const [month, setMonth] = useState(() => new Date());
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [reminderTime, setReminderTimeState] = useState<ReminderTime>(null);
+  const action = useAction();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { pending, arm, undo, dismiss } = useUndo(() => void load());
+  const { pending, arm, undo, dismiss } = useUndo(() => {
+    void load().catch(() =>
+      action.setError("Could not refresh this list. Please reopen the app."),
+    );
+  });
 
   const load = async () => {
     const [h, l] = await Promise.all([
@@ -38,78 +46,64 @@ export function Habits() {
     const active = h.filter((x) => !x.archived);
     setHabits(active);
     setLogs(l);
-    await updateBadge(h, l);
+    await updateBadge(active, l);
   };
 
   useEffect(() => {
-    void load();
-    void getReminderTime().then(setReminderTimeState);
+    void load().catch(() => action.setError("Could not load habits."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function updateBadge(h: Habit[], l: HabitLog[]) {
     const today = dayKey();
-    const incomplete = h.filter((habit) => !isDoneOn(l, habit.id!, today)).length;
+    const incomplete = h.filter(
+      (habit) => !isDoneOn(l, habit.id!, today),
+    ).length;
     await setBadge(incomplete);
   }
 
   async function add() {
-    const n = name.trim();
-    if (!n) return;
-    await db.habits.add({ name: n, createdAt: Date.now(), archived: false });
-    setName("");
-    setSheetOpen(false);
-    await load();
+    const value = name.trim();
+    if (!value) return;
+    await action.run(async () => {
+      await db.habits.add({
+        name: value,
+        createdAt: Date.now(),
+        archived: false,
+      });
+      setName("");
+      setSheetOpen(false);
+      await load();
+    });
   }
 
   async function remove(id: number) {
-    const habit = habits.find((h) => h.id === id);
-    if (!habit) return;
-    const relatedLogs = logs.filter((l) => l.habitId === id);
-    await db.habits.delete(id);
-    await db.habitLogs.where("habitId").equals(id).delete();
-    await load();
-    void arm(`Deleted “${habit.name}”`, async () => {
-      const restoredId = await db.habits.add({ ...habit });
-      if (relatedLogs.length) {
-        await db.habitLogs.bulkAdd(relatedLogs.map((l) => ({ ...l, habitId: restoredId as number })));
-      }
+    await action.run(async () => {
+      await db.habits.update(id, { archived: true });
+      await load();
+      arm("Habit archived", () => db.habits.update(id, { archived: false }));
     });
   }
 
   async function onToggleToday(habit: Habit) {
     tap();
-    await toggleToday(habit, logs);
-    await load();
-  }
-
-  async function enableReminders() {
-    const perm = await requestReminderPermission();
-    if (perm === "granted" && !reminderTime) {
-      const def = "20:00";
-      setReminderTimeState(def);
-      await saveReminderTime(def);
-    }
-  }
-
-  async function testReminder() {
-    if (!("Notification" in window) || Notification.permission !== "granted") {
-      const perm = await requestReminderPermission();
-      if (perm !== "granted") return;
-    }
-    showForegroundReminder("Commonplace", "This is a test reminder.");
-  }
-
-  async function onTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value || null;
-    setReminderTimeState(value);
-    await saveReminderTime(value);
+    await action.run(async () => {
+      await toggleToday(habit);
+      await load();
+    });
   }
 
   const today = dayKey();
 
   return (
     <div className="screen-pad">
+      {!sheetOpen && <InlineError>{action.error}</InlineError>}
+      {habits.length > 0 && (
+        <p className="text-sm text-softink">
+          {habits.filter((h) => isDoneOn(logs, h.id!, today)).length} of{" "}
+          {habits.length} done today
+        </p>
+      )}
       {habits.length === 0 ? (
         <EmptyState
           icon={Repeat}
@@ -134,42 +128,48 @@ export function Habits() {
                 <div className="flex items-center justify-between">
                   <button
                     type="button"
+                    disabled={action.busy}
+                    onClick={() => onToggleToday(h)}
+                    aria-pressed={doneToday}
+                    aria-label={`Mark ${h.name} ${doneToday ? "not done" : "done"} today`}
+                    className="tap-target mr-2 flex shrink-0 items-center justify-center"
+                  >
+                    <span
+                      className="flex h-8 w-8 items-center justify-center rounded-full border-2"
+                      style={{
+                        borderColor: doneToday
+                          ? "var(--color-sage)"
+                          : "var(--color-taupe)",
+                        background: doneToday
+                          ? "var(--color-sage)"
+                          : "transparent",
+                      }}
+                    >
+                      {doneToday && (
+                        <Icon
+                          as={Check}
+                          size={18}
+                          color="var(--color-onaccent)"
+                          weight="bold"
+                        />
+                      )}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() =>
                       setExpandedId((id) => (id === h.id ? null : h.id!))
                     }
                     aria-expanded={expandedId === h.id}
                     className="interactive flex flex-1 items-center gap-3 text-left"
                   >
-                    <span
-                      className="flex h-9 w-9 items-center justify-center rounded-full border-2"
-                      style={{
-                        borderColor: doneToday ? "#4B5D45" : "#E4DCCB",
-                        background: doneToday ? "#4B5D45" : "transparent",
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void onToggleToday(h);
-                      }}
-                      aria-pressed={doneToday}
-                      aria-label={`Mark ${h.name} ${doneToday ? "not done" : "done"} today`}
-                    >
-                      {doneToday && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 600, damping: 20 }}
-                        >
-                          <Icon as={Check} size={18} color="#FDFBF7" weight="bold" />
-                        </motion.span>
-                      )}
-                    </span>
                     <span className="font-serif text-lg font-semibold text-ink">
                       {h.name}
                     </span>
                     <Icon
                       as={CaretDown}
                       size={16}
-                      color="#6B6058"
+                      color="var(--color-softink)"
                       weight="bold"
                       className="ml-1 transition-transform"
                       style={{
@@ -178,13 +178,29 @@ export function Habits() {
                       }}
                     />
                   </button>
-                  <button type="button" onClick={() => remove(h.id!)} aria-label="Delete habit" className="tap-target">
-                    <Icon as={Trash} size={18} color="#A8412A" weight="light" />
+                  <button
+                    type="button"
+                    onClick={() => remove(h.id!)}
+                    aria-label="Archive habit"
+                    disabled={action.busy}
+                    className="tap-target"
+                  >
+                    <Icon
+                      as={Trash}
+                      size={18}
+                      color="var(--color-rust)"
+                      weight="light"
+                    />
                   </button>
                 </div>
 
                 <div className="mt-2 flex items-center gap-1.5">
-                  <Icon as={Flame} size={15} color="#C89B3C" weight="fill" />
+                  <Icon
+                    as={Flame}
+                    size={15}
+                    color="var(--color-ochre)"
+                    weight="fill"
+                  />
                   <span className="font-sans text-sm font-medium text-ochre">
                     {streak} {streak === 1 ? "day" : "days"}
                   </span>
@@ -204,12 +220,24 @@ export function Habits() {
                           <button
                             type="button"
                             onClick={() =>
-                              setMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
+                              setMonth(
+                                (m) =>
+                                  new Date(
+                                    m.getFullYear(),
+                                    m.getMonth() - 1,
+                                    1,
+                                  ),
+                              )
                             }
                             aria-label="Previous month"
                             className="interactive"
                           >
-                            <Icon as={CaretLeft} size={16} color="#6B6058" weight="bold" />
+                            <Icon
+                              as={CaretLeft}
+                              size={16}
+                              color="var(--color-softink)"
+                              weight="bold"
+                            />
                           </button>
                           <span className="font-sans text-xs font-medium text-softink">
                             {monthLabel(month.getFullYear(), month.getMonth())}
@@ -217,12 +245,24 @@ export function Habits() {
                           <button
                             type="button"
                             onClick={() =>
-                              setMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
+                              setMonth(
+                                (m) =>
+                                  new Date(
+                                    m.getFullYear(),
+                                    m.getMonth() + 1,
+                                    1,
+                                  ),
+                              )
                             }
                             aria-label="Next month"
                             className="interactive"
                           >
-                            <Icon as={CaretRight} size={16} color="#6B6058" weight="bold" />
+                            <Icon
+                              as={CaretRight}
+                              size={16}
+                              color="var(--color-softink)"
+                              weight="bold"
+                            />
                           </button>
                         </div>
                         <MonthGrid
@@ -244,59 +284,44 @@ export function Habits() {
       <BottomSheet
         open={sheetOpen}
         onClose={() => {
+          if (action.busy) return;
           setSheetOpen(false);
           setName("");
         }}
         title="New habit"
       >
+        <InlineError>{action.error}</InlineError>
         <input
+          aria-label="Habit name"
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) void add();
+          }}
           placeholder="New habit"
           className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
         />
         <button
           type="button"
+          disabled={action.busy || !name.trim()}
           onClick={add}
-          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-surface"
+          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-onaccent"
         >
           Add
         </button>
       </BottomSheet>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-taupe pt-4">
-        <button
-          type="button"
-          onClick={enableReminders}
-          className="interactive flex items-center gap-1.5 font-sans text-xs font-medium"
-          style={{ color: reminderTime ? "#2B2420" : "#6B6058" }}
-        >
-          <Icon as={Bell} size={15} color={reminderTime ? "#2B2420" : "#6B6058"} weight={reminderTime ? "fill" : "light"} />
-          {reminderTime ? `Reminders at ${reminderTime}` : "Enable reminders"}
-        </button>
-        {reminderTime && (
-          <div className="flex items-center gap-2">
-            <input
-              type="time"
-              value={reminderTime ?? ""}
-              onChange={onTimeChange}
-              aria-label="Daily reminder time"
-              className="rounded-full border border-taupe bg-surface px-3 py-1.5 font-sans text-xs text-ink focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={testReminder}
-              className="interactive flex items-center gap-1.5 rounded-full border border-taupe px-3 py-1.5 font-sans text-xs font-medium text-softink"
-            >
-              <Icon as={Bell} size={15} color="#6B6058" weight="light" />
-              Test
-            </button>
-          </div>
-        )}
-      </div>
-      <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
+      <p className="mt-6 border-t border-taupe pt-4 text-xs text-softink">
+        Manage your daily reminder in Settings.
+      </p>
+      <UndoSnackbar
+        pending={pending}
+        onUndo={() => {
+          void action.run(undo);
+        }}
+        onDismiss={dismiss}
+      />
     </div>
   );
 }
