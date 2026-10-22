@@ -72,7 +72,12 @@ export function BottomSheet({
     );
   };
   const startHeader = (event: ReactPointerEvent<HTMLElement>) => {
-    if (page || event.button !== 0 || !event.isPrimary) return;
+    if (!event.isPrimary) {
+      suppressClick.current = true;
+      reset();
+      return;
+    }
+    if (page || event.button !== 0) return;
     if ((event.target as HTMLElement).closest("button:not(.sheet-grabber)"))
       return;
     suppressClick.current = false;
@@ -117,8 +122,11 @@ export function BottomSheet({
     } | null = null;
     const start = (event: TouchEvent) => {
       const target = event.target as HTMLElement;
+      if (event.touches.length !== 1) {
+        reset();
+        return;
+      }
       if (
-        event.touches.length !== 1 ||
         node.scrollTop > 0 ||
         target.closest(
           'input, textarea, button, a, select, [contenteditable="true"]',
@@ -304,6 +312,7 @@ export function BottomSheet({
                   onPointerMove={moveHeader}
                   onPointerUp={endHeader}
                   onPointerCancel={reset}
+                  onLostPointerCapture={reset}
                 >
                   <span />
                 </button>
@@ -314,6 +323,7 @@ export function BottomSheet({
                 onPointerMove={moveHeader}
                 onPointerUp={endHeader}
                 onPointerCancel={reset}
+                onLostPointerCapture={reset}
               >
                 {page && (
                   <button
