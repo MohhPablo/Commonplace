@@ -37,4 +37,4 @@ Database versions 4 and 5 repair duplicate logical keys before enforcing uniquen
 
 ## Release checks
 
-Before merging, run the tests and production build. On an iPhone, also check the keyboard and caret, scroll position, safe areas, all three themes, background locking, offline launch, and updating the installed app while writing. The current implementation was verified with automated tests; a visual browser review was unavailable in the implementation session.
+Before merging, run the tests and production build. On an iPhone, also check the keyboard and caret, scroll position, safe areas, all three themes, background locking, offline launch, and updating the installed app while writing. Automated tests and desktop Chrome smoke checks cover writing, autosave, Done navigation, the Settings update check, sheet-grabber dismissal, and light/dark rendering. Physical iPhone checks remain outstanding.
