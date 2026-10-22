@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      injectRegister: false,
       includeAssets: [
         "icons/apple-touch-icon-180.png",
         "icons/icon-192.png",
@@ -18,23 +19,39 @@ export default defineConfig({
       manifest: {
         name: "Commonplace",
         short_name: "Commonplace",
-        description: "A quiet daily home for writing, tasks, priorities, and habits.",
+        description:
+          "A quiet daily home for writing, tasks, priorities, and habits.",
         start_url: "/",
         scope: "/",
         display: "standalone",
         orientation: "portrait",
         lang: "en",
-        background_color: "#FAF6EF",
-        theme_color: "#FAF6EF",
+        background_color: "#F2F2F5",
+        theme_color: "#F2F2F5",
         icons: [
-          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          {
+            src: "icons/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "icons/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "icons/icon-512-maskable.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
         ],
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        skipWaiting: true,
+        skipWaiting: false,
         clientsClaim: true,
       },
       devOptions: {
@@ -44,12 +61,17 @@ export default defineConfig({
   ],
   build: {
     target: "es2020",
+    manifest: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          motion: ["framer-motion"],
-          tiptap: ["@tiptap/react", "@tiptap/starter-kit"],
-          dexie: ["dexie"],
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id))
+            return "react";
+          if (id.includes("/node_modules/framer-motion/")) return "motion";
+          if (/\/node_modules\/(@tiptap\/|prosemirror-)/.test(id))
+            return "tiptap";
+          if (id.includes("/node_modules/dexie/")) return "dexie";
         },
       },
     },

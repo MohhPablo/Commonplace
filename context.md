@@ -4,7 +4,7 @@
 
 ## What this app is
 
-**Commonplace** — a private, offline-first daily companion (journal, tasks, priorities, habits) that feels like a warm paper notebook. No accounts, no backend, no cloud. Installable PWA (add to Home Screen, standalone). Built exactly to the brief in `daily-companion-pwa-prompt.md` + `pwa-ios-technical-reference.md` (keep those two for product/technical intent).
+**Commonplace** — a private, offline-first daily companion (journal, tasks, priorities, habits) with an iOS-inspired glass interface and a quiet full-page writer. No accounts, no backend, no cloud. Installable PWA (add to Home Screen, standalone). Originally based on `daily-companion-pwa-prompt.md` + `pwa-ios-technical-reference.md` (keep those two for product/technical intent).
 
 Working name: **commonplace**. npm package name: `commonplace@0.1.0`.
 
@@ -13,9 +13,9 @@ Working name: **commonplace**. npm package name: `commonplace@0.1.0`.
 - **React 18 + TypeScript + Vite 6** (no router — tab switching is React `useState`).
 - **Tailwind CSS v4** (via `@tailwindcss/vite`), themed with CSS vars in `@theme`.
 - **Framer Motion** — all transitions/springs, drag-reorder, bottom sheets.
-- **Tiptap** (ProseMirror) — journal rich-text editor.
+- **Tiptap 3** (ProseMirror) — journal rich-text editor.
 - **Dexie 4** — IndexedDB wrapper (the ONLY data store).
-- **vite-plugin-pwa** (Workbox) — manifest + service worker (`autoUpdate`, `skipWaiting`, `clientsClaim`).
+- **vite-plugin-pwa** (Workbox) — manifest + service worker (prompt-based updates, explicit activation from Settings, `clientsClaim`).
 - **@phosphor-icons/react** — iconography (duotone/light weights only).
 - **Web Notifications API** — foreground-only reminders (no backend, no scheduled push).
 
@@ -25,6 +25,7 @@ Working name: **commonplace**. npm package name: `commonplace@0.1.0`.
 - `npm run build` — `tsc -b && vite build` (typecheck + production build + PWA precache)
 - `npm run preview` — serve `dist/` (use this to test the real build)
 - `npm run typecheck` — `tsc -b --noEmit`
+- `npm test` — Vitest regression tests (Node.js 24 recommended)
 
 ## Architecture at a glance
 
@@ -33,10 +34,10 @@ index.html  →  #boot-splash (instant CSS paint) + viewport meta (viewport-fit=
 src/main.tsx → mounts <App/>, requestPersistentStorage(), fade-then-remove splash
 src/App.tsx  → top-level shell:
    - state: active TabKey, locked (password gate), settingsOpen, showOnboarding
-   - <TodayBanner/> (fixed top, undone habits)
-   - <main> renders ONE tab by `active`:
+   - Auth/theme initialization gate; background privacy lock; visible in-app reminder
+   - <main> renders ONE content tab by `active` (secondary features are lazy-loaded):
         journal | tasks | priorities | habits | review   (review added later)
-   - <TabBar/> fixed bottom; <Splash/> 900ms fade; <Settings/> sheet (gear button top-right)
+   - Five-tab <TabBar/> anchored in the app frame; <Splash/>; <Settings/> sheet from the header gear
    - <LockScreen/> (when password set) ; <Onboarding/> (first run, once)
 src/components/  TabBar, Icon, Checkbox, EmptyState, Splash, LockScreen, Settings, Onboarding
 src/features/    journal/, tasks/, priorities/, habits/, review/
@@ -52,44 +53,48 @@ vite.config.ts   plugins + manualChunks (motion/tiptap/dexie vendor splits)
 
 Tables (all in `src/lib/db.ts`). **Migrations are cumulative — never edit old `version(n)` blocks, only append.**
 
-| Table | Key fields | Notes |
-|---|---|---|
-| `entries` | `id, createdAt, updatedAt, content (Tiptap JSON), wordCount` | Journal. Debounced autosave (500ms). |
-| `tasks` | `id, text, dueDate(null), completed, completedAt, createdAt` | Flat todo. Swipe-to-delete. |
-| `priorities` | `id, list("needs"|"wants"), text, order, fulfilled, fulfilledAt, createdAt` | Two reorderable lists via Framer `Reorder`. |
-| `habits` | `id, name, createdAt, archived` | Soft-delete via `archived`. |
-| `habitLogs` | `id, habitId, date(YYYY-MM-DD), completed` | Compound index `[habitId+date]` = one log/day. |
-| `moods` | `id, date(YYYY-MM-DD), score(1-5), label?, createdAt` | Review tab. Added v3. |
-| `reflections` | `id, date(YYYY-MM-DD), content, createdAt` | Review tab daily prompt. Added v3. |
-| `meta` | `id, key, value` | KV store for settings: `setting:reminderTime`, `setting:theme`, `setting:onboarded`, `authHash` (password). Added v2. |
+| Table         | Key fields                                                   | Notes                                                                                                                 |
+| ------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `entries`     | `id, createdAt, updatedAt, content (Tiptap JSON), wordCount` | Journal. Serialized autosave (500ms) with retry and navigation flush.                                                 |
+| `tasks`       | `id, text, dueDate(null), completed, completedAt, createdAt` | Flat todo. Swipe-to-delete.                                                                                           |
+| `priorities`  | `id, list("needs"                                            | "wants"), text, order, fulfilled, fulfilledAt, createdAt`                                                             | Two reorderable lists via Framer `Reorder`, text editing, keyboard reorder, debounced order writes. |
+| `habits`      | `id, name, createdAt, archived`                              | Soft-delete via `archived`.                                                                                           |
+| `habitLogs`   | `id, habitId, date(YYYY-MM-DD), completed`                   | Compound index `[habitId+date]` = one log/day.                                                                        |
+| `moods`       | `id, date(YYYY-MM-DD), score(1-5), label?, createdAt`        | Review tab. Added v3.                                                                                                 |
+| `reflections` | `id, date(YYYY-MM-DD), content, createdAt`                   | Review tab daily prompt. Added v3.                                                                                    |
+| `meta`        | `id, key, value`                                             | KV store for settings: `setting:reminderTime`, `setting:theme`, `setting:onboarded`, `authHash` (password). Added v2. |
 
-**Dexie schema history:** v1 (core 5 tables) → v2 (added `meta`) → v3 (added `moods`, `reflections`).
+**Dexie schema history:** v1 (core 5 tables) → v2 (`meta`) → v3 (`moods`, `reflections`) → v4 (repair duplicate logical keys) → v5 (unique meta keys and daily habit/mood/reflection keys). Old migrations are unchanged.
 
-**Backup** (`src/lib/backup.ts`): `exportData()`/`downloadBackup()`/`importData()` snapshot ALL tables (incl. moods/reflections). `importData` validates `version === 1` and wraps a Dexie transaction over every table.
+**Backup** (`src/lib/backup.ts`): `exportData()`/`downloadBackup()`/`importData()` snapshot ALL tables (incl. moods/reflections). `importData` validates the complete backup before a replacement transaction. Settings previews record counts and requires an explicit replacement action. Export flushes drafts and reads a consistent transaction.
 
 ## Key modules & how to use them
 
 - **`lib/db.ts`** — `db` singleton + interfaces + `requestPersistentStorage()` (best-effort `navigator.storage.persist()`).
 - **`lib/date.ts`** — `dayKey()` (local `YYYY-MM-DD`, the canonical daily key), `fromDayKey()`, `formatDateline()`, `formatShort()`, `formatRelative()`. Always use `dayKey()` for "today" comparisons (habitLogs, moods, reflections).
-- **`lib/habits.ts`** — `currentStreak(habitId, logs)`, `isDoneOn(logs, habitId, key)`, `toggleToday(habit, logs)`.
+- **`lib/habits.ts`** — `currentStreak(habitId, logs)`, `isDoneOn(logs, habitId, key)`, `toggleToday(habit)` (transactional).
 - **`lib/auth.ts`** — password gate. `isPasswordSet()`, `setPassword()` (PBKDF2-SHA256, Web Crypto, salt stored in `meta.authHash`), `verifyPassword()`, `clearPassword()`, `resetAllData()` (wipes everything).
 - **`lib/notifications.ts`** — `requestReminderPermission()`, `showForegroundReminder()` (persistent: `requireInteraction:true`, keeps ref), `configureReminder()`/`saveReminderTime()` (foreground scheduler fires at user-chosen HH:MM while app open, lists undone habits).
 - **`lib/settings.ts`** — KV helpers `getSetting/setSetting`, plus typed `getReminderTime/setReminderTime`, `getTheme/setTheme` (`"paper"|"dark"|"sepia"`), `getOnboarded/setOnboarded`.
 - **`lib/haptics.ts`** — `tap()` → `navigator.vibrate`. **No-op on iOS by design** (Vibration API unsupported; see technical ref §1). Safe to call anywhere.
 - **`lib/badge.ts`** — `setBadge()`/`clearBadge()` (Badging API, best-effort).
 
-## Design system (the "Warm & Editorial" look — non-negotiable)
+## Design system (current user direction)
 
-Defined as CSS vars in `src/index.css` `@theme` and overridden per `html[data-theme]`:
-- paper `#FAF6EF`, surface `#FDFBF7`, ink `#2B2420`, softink `#6B6058`, terracotta `#C1502D` (primary accent), sage `#4B5D45` (success), ochre `#C89B3C` (streaks), taupe `#E4DCCB` (dividers), rust `#A8412A` (destructive).
-- Fonts: **Fraunces** (serif headers/dates/wordmark) + **Inter** (UI/body). Loaded via Google Fonts `<link>` in `index.html`.
-- Phosphor icons only; duotone secondary layer = terracotta low-opacity. Custom `Checkbox` (never native `<input type=checkbox>`).
-- Spring transitions (Framer Motion), warm diffuse shadows (`--shadow-page`/`--shadow-lift`), subtle paper-grain overlay (`.paper-grain`).
-- **Layout:** centered `max-w-md` column, `min-h-dvh`, safe-area insets everywhere, `pb-24` main to clear fixed TabBar.
+The latest user request supersedes the original paper-only direction: use an iOS-inspired glass interface with anchored chrome and a better writing experience.
+
+- Shared tokens live in `src/index.css`; light, dark, and sepia each define translucent materials, borders, and highlights. Keep terracotta as the accent and Fraunces for journal dates.
+- UI typography uses the Apple system font on Apple devices, with Inter bundled as fallback. Writing defaults to the system font with an optional book-font view.
+- `.app-frame` follows the visual viewport; `.app-session` places the header and glass capsule tab bar around an independently scrolling `.app-scroll`. The document itself must not scroll.
+- Writing mode hides the main header and tab bar. The writer has its own header, scrolling text pane, and bottom formatting dock above the keyboard.
+- All sheets share `BottomSheet`: downward header/grabber dragging, top-of-content pull dismissal, focus containment, Escape, close button, and background inertness. Never hijack text input or ordinary upward scrolling.
+- `.glass-toolbar`, `.glass-sheet`, and `.native-card` share material tokens. Reduced-transparency preferences use opaque surfaces.
+- `lib/updates.ts` saves drafts before explicit worker activation. Keep PWA updates prompt-based so ordinary downloads do not reload an active draft.
 
 ## iOS-specific constraints (do NOT violate)
 
 From `pwa-ios-technical-reference.md` — these are hard limits, not preferences:
+
 - **No backend** → no scheduled notifications while app closed, no Web Push without a server. Reminders = in-app banner + Badge API + best-effort foreground Notification only.
 - **`navigator.vibrate` unsupported on iOS** → use motion/color feedback (haptics.ts is a safe no-op there).
 - **No native HTML5 drag-and-drop** → use Framer `Reorder` (already done in Priorities).
@@ -98,15 +103,15 @@ From `pwa-ios-technical-reference.md` — these are hard limits, not preferences
 
 ## Features summary
 
-| Tab | Component | Behavior |
-|---|---|---|
-| Journal | `features/journal/Journal.tsx` + `Editor.tsx` | List↔Write; Tiptap; debounced autosave; search; BubbleMenu on selection. |
-| Tasks | `features/tasks/Tasks.tsx` | Add/due/complete; swipe-to-delete; collapsed Done. |
-| Priorities | `features/priorities/Priorities.tsx` | Needs/Wants segmented; Framer `Reorder`; fulfilled section. |
-| Habits | `features/habits/Habits.tsx` + `MonthGrid.tsx` | Add/delete; one-tap today; streak; calendar expands inline per habit (tap card); foreground reminders + time picker. |
-| Review | `features/review/Review.tsx` | Daily reflection prompt (autosave), 5-point mood picker + 7-day strip, insights (best streak, words/week, entries, avg mood). |
+| Tab        | Component                                      | Behavior                                                                                                                                                                  |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Journal    | `features/journal/Journal.tsx` + `Editor.tsx`  | List↔Write; Tiptap; debounced autosave; search; keyboard-aware writing dock with expandable formatting; lazy-loaded editor.                                              |
+| Tasks      | `features/tasks/Tasks.tsx`                     | Add/edit/due/complete; safe swipe cancellation; deletion from edit sheet; Undo; collapsed Done.                                                                           |
+| Priorities | `features/priorities/Priorities.tsx`           | Needs/Wants segmented; Framer `Reorder`; fulfilled section.                                                                                                               |
+| Habits     | `features/habits/Habits.tsx` + `MonthGrid.tsx` | Add/archive with Undo; separate completion and calendar buttons; one-tap today; streak; calendar expands inline per habit (tap card); foreground reminders + time picker. |
+| Review     | `features/review/Review.tsx`                   | Daily reflection prompt (autosave), 5-point mood picker + 7-day strip, insights with explicit current-streak and seven-day labels.                                        |
 
-**Cross-cutting:** Splash (fade), password LockScreen (PBKDF2), Settings sheet (password/theme/notifications/backup), Onboarding (first-run, once), haptics on toggle, dark/sepia themes, vendor chunk splitting.
+**Cross-cutting:** Splash (fade), password LockScreen (PBKDF2), Settings sheet (password/theme/notifications/backup/app updates), Onboarding (first-run, once), haptics on toggle, dark/sepia themes, vendor chunk splitting.
 
 ## How to add a new feature (the proven pattern)
 
@@ -126,3 +131,13 @@ From `pwa-ios-technical-reference.md` — these are hard limits, not preferences
 ## Files you'll touch most
 
 `src/App.tsx`, `src/components/TabBar.tsx`, `src/lib/db.ts`, `src/lib/settings.ts`, `src/index.css`, `vite.config.ts`. Feature logic lives under `src/features/<name>/`.
+
+## Reliability and interaction updates
+
+- `lib/autosave.ts` / `useAutosave.ts` serialize and coalesce draft writes. App navigation and backup export await pending saves; failed drafts stay available for retry. Deletion discards pending writes before deleting, and reset discards all drafts before clearing tables.
+- Lock initialization completes before private features first mount. After an unlocked session is backgrounded, the entire private surface is hidden from layout, focus, and accessibility while preserving in-memory drafts. The passcode is not encryption.
+- `lib/useToday.ts` refreshes daily feature state at midnight and on resume. Reminder dates use local `dayKey()`. Reminders can show an in-app banner without system notification support.
+- `BottomSheet` is a labelled modal portal with focus containment, Escape handling, background inertness, and focus restoration.
+- Theme colors use semantic CSS variables, including `--color-onaccent`. Zoom and rich-text selection are allowed; motion respects the device preference.
+- Journal lists show searchable excerpts and month groups. Tasks and priorities are editable. Mood choices have visible text labels.
+- See `README.md`, `tests/`, and `.github/workflows/check.yml` for verification and remaining real-device checks.

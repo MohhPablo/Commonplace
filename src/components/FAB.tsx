@@ -20,10 +20,10 @@ export function FAB({
       type="button"
       onClick={onPress}
       aria-label={label}
-      className="interactive fixed right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-terracotta text-surface shadow-lift"
+      className="fab interactive fixed z-30 flex h-14 w-14 items-center justify-center rounded-full bg-terracotta text-onaccent shadow-lift native-fab"
       style={{ bottom: "calc(env(safe-area-inset-bottom) + 4.75rem)" }}
     >
-      <Icon as={Glyph} size={26} color="#FDFBF7" weight="bold" />
+      <Icon as={Glyph} size={26} color="var(--color-onaccent)" weight="bold" />
     </button>
   );
 }

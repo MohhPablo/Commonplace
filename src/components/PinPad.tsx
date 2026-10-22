@@ -33,15 +33,31 @@ export function PinPad({
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
   return (
-    <div>
+    <div
+      role="group"
+      aria-label="Passcode keypad"
+      onKeyDown={(event) => {
+        if (/^\d$/.test(event.key)) {
+          event.preventDefault();
+          press(event.key);
+        } else if (event.key === "Backspace") {
+          event.preventDefault();
+          del();
+        }
+      }}
+    >
+      <span className="sr-only" role="status">
+        {value.length} of {length} digits entered
+      </span>
       <div className="flex justify-center gap-3">
         {Array.from({ length }).map((_, i) => (
           <span
             key={i}
             className="h-3.5 w-3.5 rounded-full border-2 transition-transform"
             style={{
-              borderColor: "#E4DCCB",
-              background: i < value.length ? "var(--color-terracotta)" : "transparent",
+              borderColor: "var(--color-taupe)",
+              background:
+                i < value.length ? "var(--color-terracotta)" : "transparent",
               transform: i < value.length ? "scale(1.2)" : "scale(1)",
             }}
           />
@@ -78,7 +94,12 @@ export function PinPad({
           onClick={del}
           className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface transition-transform active:scale-95"
         >
-          <Icon as={Backspace} size={24} color="#6B6058" weight="light" />
+          <Icon
+            as={Backspace}
+            size={24}
+            color="var(--color-softink)"
+            weight="light"
+          />
         </button>
       </div>
     </div>

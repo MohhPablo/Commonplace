@@ -1,122 +1,286 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { MotionConfig } from "framer-motion";
+import { Gear } from "@phosphor-icons/react";
 import { TabBar, type TabKey, TABS } from "./components/TabBar";
 import { Splash } from "./components/Splash";
 import { LockScreen } from "./components/LockScreen";
 import { Settings } from "./components/Settings";
 import { Onboarding } from "./components/Onboarding";
+import { InlineError } from "./components/InlineError";
+import { Icon } from "./components/Icon";
 import { Journal } from "./features/journal/Journal";
-import { Tasks } from "./features/tasks/Tasks";
-import { Priorities } from "./features/priorities/Priorities";
-import { Habits } from "./features/habits/Habits";
-import { Review } from "./features/review/Review";
 import { isPasswordSet } from "./lib/auth";
-import { configureReminder, stopReminder } from "./lib/notifications";
-import { getTheme } from "./lib/settings";
-import { getOnboarded, setOnboarded } from "./lib/settings";
+import {
+  configureReminder,
+  onReminderFire,
+  stopReminder,
+} from "./lib/notifications";
+import {
+  applyTheme,
+  getTheme,
+  getOnboarded,
+  setOnboarded,
+} from "./lib/settings";
+import { flushPendingSaves, hasPendingSaves } from "./lib/autosave";
+import { WritingMode } from "./lib/WritingMode";
+import { ModalAvailability } from "./lib/ModalAvailability";
+import { useToday } from "./lib/useToday";
+
+const Tasks = lazy(() =>
+  import("./features/tasks/Tasks").then((m) => ({ default: m.Tasks })),
+);
+const Priorities = lazy(() =>
+  import("./features/priorities/Priorities").then((m) => ({
+    default: m.Priorities,
+  })),
+);
+const Habits = lazy(() =>
+  import("./features/habits/Habits").then((m) => ({ default: m.Habits })),
+);
+const Review = lazy(() =>
+  import("./features/review/Review").then((m) => ({ default: m.Review })),
+);
 
 export function App() {
+  const [writing, setWriting] = useState(false);
   const [active, setActive] = useState<TabKey>("journal");
-  const [base, setBase] = useState<TabKey>("journal");
-  const [locked, setLocked] = useState<boolean | null>(null);
+  const [ready, setReady] = useState(false);
+  const [locked, setLocked] = useState(true);
+  const [sessionOpen, setSessionOpen] = useState(false);
+  const [hasPasscode, setHasPasscode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [error, setError] = useState("");
+  const [reminder, setReminder] = useState("");
+  const [revision, setRevision] = useState(0);
+  const today = useToday();
 
   useEffect(() => {
-    void isPasswordSet().then(setLocked);
+    let disposed = false;
+    void Promise.all([isPasswordSet(), getTheme(), getOnboarded()])
+      .then(([passcode, theme, onboarded]) => {
+        if (disposed) return;
+        applyTheme(theme);
+        setHasPasscode(passcode);
+        setLocked(passcode);
+        setSessionOpen(!passcode);
+        setShowOnboarding(!onboarded);
+        setReady(true);
+      })
+      .catch(() => {
+        if (!disposed)
+          setError(
+            "Could not open your device storage. Please reopen the app to try again. Your data has not been reset.",
+          );
+      });
+    return () => {
+      disposed = true;
+    };
   }, []);
 
-  // Show the first-run tour once, before the app is unlocked.
   useEffect(() => {
-    void getOnboarded().then((done) => {
-      if (!done) setShowOnboarding(true);
-    });
-  }, []);
-
-  // Apply the saved theme to <html> on mount.
-  useEffect(() => {
-    void getTheme().then((t) => {
-      document.documentElement.dataset.theme = t;
-    });
-  }, []);
-
-  // Arm the saved daily reminder once the app mounts; clear on unmount.
-  useEffect(() => {
-    void configureReminder();
+    if (!ready) return;
+    const unsubscribe = onReminderFire((_title, body) => setReminder(body));
+    const configure = () => {
+      void configureReminder().catch(() =>
+        setError(
+          "Could not start your reminder. Try changing the time in Settings.",
+        ),
+      );
+    };
+    configure();
     const onVisible = () => {
-      if (document.visibilityState === "visible") void configureReminder();
+      if (document.visibilityState === "hidden") {
+        void flushPendingSaves().catch(() =>
+          setError(
+            "Some changes couldn't be saved. Your draft is still open; please retry.",
+          ),
+        );
+        if (hasPasscode) {
+          setLocked(true);
+          setSettingsOpen(false);
+        }
+      } else configure();
+    };
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasPendingSaves()) return;
+      void flushPendingSaves().catch(() => {});
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const pageHide = () => {
+      void flushPendingSaves().catch(() => {});
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("beforeunload", beforeUnload);
+    window.addEventListener("pagehide", pageHide);
     return () => {
-      document.removeEventListener("visibilitychange", onVisible);
+      unsubscribe();
       stopReminder();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("pagehide", pageHide);
     };
-  }, []);
+  }, [ready, hasPasscode]);
 
-  // Remember the last real screen so opening Settings (a tab) leaves the
-  // previous view mounted behind the sheet and returns to it on close.
-  useEffect(() => {
-    if (active !== "settings") setBase(active);
-  }, [active]);
-
-  const headerTitle =
-    active === "settings"
-      ? "Settings"
-      : TABS.find((t) => t.key === active)?.label ?? "Commonplace";
+  async function navigate(next: TabKey | "settings") {
+    try {
+      await flushPendingSaves();
+      setError("");
+      if (next === "settings") setSettingsOpen(true);
+      else {
+        setReminder("");
+        setActive(next);
+      }
+    } catch {
+      setError(
+        "Your latest changes are still here. Retry saving before leaving this screen.",
+      );
+    }
+  }
 
   return (
-    <div className="paper-grain relative mx-auto flex min-h-dvh max-w-md flex-col">
-      <AppBar title={headerTitle} />
-      <main className="flex-1 pb-24" style={{ position: "relative", zIndex: 2 }}>
-        {base === "journal" && <Journal />}
-        {base === "tasks" && <Tasks />}
-        {base === "priorities" && <Priorities />}
-        {base === "habits" && <Habits />}
-        {base === "review" && <Review />}
-      </main>
-      <TabBar active={active} onChange={setActive} />
-      <Splash />
-      <Settings
-        open={active === "settings"}
-        onClose={() => setActive(base)}
-        onPasswordChanged={() => {
-          void isPasswordSet().then(setLocked);
-        }}
-      />
-      {locked && (
-        <LockScreen
-          onUnlock={() => {
-            setLocked(false);
-            setActive("journal");
-          }}
-        />
-      )}
-      {showOnboarding && (
-        <Onboarding
-          onDone={() => {
-            setShowOnboarding(false);
-            void setOnboarded(true);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Fixed top app-bar (native-feel, §6). Stays stationary while content scrolls
- * and holds only the active screen title. The settings gear now lives as its
- * own tab in the bottom nav, so it never overlaps screen content or the
- * header divider.
- */
-function AppBar({ title }: { title: string }) {
-  return (
-    <header
-      className="app-header fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-taupe bg-surface/95 px-5 backdrop-blur-sm"
-      style={{
-        paddingTop: "env(safe-area-inset-top)",
-        height: "calc(env(safe-area-inset-top) + 3.5rem)",
-      }}
-    >
-      <h1 className="font-serif text-xl font-semibold text-ink">{title}</h1>
-    </header>
+    <MotionConfig reducedMotion="user">
+      <ModalAvailability.Provider value={!locked}>
+        <WritingMode.Provider value={setWriting}>
+          <div className="app-frame">
+            <Splash />
+            {!ready ? (
+              <div className="screen-pad">
+                <p role="status" className="text-sm text-softink">
+                  Opening Commonplace…
+                </p>
+                <InlineError>{error}</InlineError>
+              </div>
+            ) : (
+              <>
+                {/* After a background lock, keep the draft in memory but remove its
+            whole surface from layout, focus, and the accessibility tree. */}
+                {sessionOpen && (
+                  <div
+                    hidden={locked}
+                    aria-hidden={locked}
+                    className={`app-session ${writing ? "is-writing" : ""}`}
+                  >
+                    <header
+                      className="app-header glass-toolbar flex items-center justify-between px-5"
+                      style={{
+                        paddingTop: "env(safe-area-inset-top)",
+                        height: "calc(env(safe-area-inset-top) + 3.5rem)",
+                      }}
+                    >
+                      <h1 className="text-[22px] font-semibold tracking-tight text-ink">
+                        {TABS.find((tab) => tab.key === active)?.label}
+                      </h1>
+                      <button
+                        type="button"
+                        onClick={() => navigate("settings")}
+                        aria-label="Settings"
+                        className="tap-target -mr-2 flex items-center justify-center"
+                      >
+                        <Icon as={Gear} size={23} />
+                      </button>
+                    </header>
+                    <main
+                      className="app-scroll"
+                      key={`${revision}:${active}`}
+                      aria-label={`${active} content`}
+                    >
+                      {error && (
+                        <div className="screen-pad !pb-0">
+                          <InlineError>{error}</InlineError>
+                        </div>
+                      )}
+                      {reminder && (
+                        <div className="screen-pad">
+                          <div
+                            role="status"
+                            className="flex items-start gap-3 rounded-xl border border-taupe bg-surface p-4 text-sm text-ink"
+                          >
+                            <button
+                              type="button"
+                              className="flex-1 text-left"
+                              onClick={() => navigate("habits")}
+                            >
+                              {reminder}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReminder("")}
+                              aria-label="Dismiss reminder"
+                              className="tap-target"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <Suspense
+                        fallback={
+                          <p
+                            role="status"
+                            className="screen-pad text-sm text-softink"
+                          >
+                            Opening…
+                          </p>
+                        }
+                      >
+                        {active === "journal" && <Journal />}
+                        {active === "tasks" && <Tasks />}
+                        {active === "priorities" && <Priorities />}
+                        {active === "habits" && <Habits key={today} />}
+                        {active === "review" && <Review key={today} />}
+                      </Suspense>
+                    </main>
+                    <TabBar
+                      active={active}
+                      onChange={(key) => {
+                        void navigate(key);
+                      }}
+                    />
+                  </div>
+                )}
+                <Settings
+                  open={settingsOpen && !locked}
+                  onClose={() => setSettingsOpen(false)}
+                  onPasswordChanged={() => {
+                    void isPasswordSet()
+                      .then(setHasPasscode)
+                      .catch(() =>
+                        setError("Could not refresh the passcode status."),
+                      );
+                  }}
+                  onDataRestored={() => {
+                    setRevision((value) => value + 1);
+                    setReminder("");
+                  }}
+                />
+                {locked && (
+                  <LockScreen
+                    onUnlock={() => {
+                      setSessionOpen(true);
+                      setLocked(false);
+                    }}
+                  />
+                )}
+                {showOnboarding && !locked && (
+                  <Onboarding
+                    onDone={() => {
+                      void setOnboarded(true)
+                        .then(() => setShowOnboarding(false))
+                        .catch(() =>
+                          setError(
+                            "Could not save your preferences. Please try again.",
+                          ),
+                        );
+                    }}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </WritingMode.Provider>
+      </ModalAvailability.Provider>
+    </MotionConfig>
   );
 }

@@ -6,7 +6,7 @@ dist/
 
 # Vite / TS cache
 *.local
-.tsbuildinfo
+*.tsbuildinfo
 vite.config.ts.timestamp-*
 
 # Logs

@@ -27,12 +27,12 @@ export function UndoSnackbar({
           className="pointer-events-none fixed inset-x-0 z-50 mx-auto flex max-w-md justify-center px-5"
           style={{ bottom: "calc(env(safe-area-inset-bottom) + 4.5rem)" }}
         >
-          <div className="pointer-events-auto flex items-center gap-5 rounded-xl bg-ink px-5 py-3 shadow-lift">
-            <span className="font-sans text-sm text-surface">{pending.label}</span>
+          <div className="pointer-events-auto flex items-center gap-5 rounded-xl border border-taupe bg-surface px-5 py-3 shadow-lift">
+            <span className="font-sans text-sm text-ink">{pending.label}</span>
             <button
               type="button"
               onClick={onUndo}
-              className="interactive font-sans text-sm font-semibold text-terracotta"
+              className="interactive min-h-11 font-sans text-sm font-semibold text-terracotta"
             >
               Undo
             </button>
@@ -40,7 +40,7 @@ export function UndoSnackbar({
               type="button"
               onClick={onDismiss}
               aria-label="Dismiss"
-              className="interactive text-softink"
+              className="tap-target interactive text-softink"
             >
               ×
             </button>

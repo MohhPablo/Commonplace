@@ -113,6 +113,42 @@ export class CommonplaceDB extends Dexie {
       moods: "++id, date, createdAt",
       reflections: "++id, date, createdAt",
     });
+    // Repair older installations before adding unique indexes. Keep the
+    // credential that previously unlocked the app; other settings use latest.
+    this.version(4)
+      .stores({})
+      .upgrade(async (tx) => {
+        for (const [name, key] of [
+          ["meta", "key"],
+          ["habitLogs", "daily"],
+          ["moods", "date"],
+          ["reflections", "date"],
+        ]) {
+          const rows = await tx.table(name).toArray();
+          const kept = new Map<string, { id: number }>();
+          const remove: number[] = [];
+          for (const row of rows) {
+            const value =
+              key === "daily" ? `${row.habitId}:${row.date}` : String(row[key]);
+            const previous = kept.get(value);
+            if (previous) {
+              if (name === "meta" && value === "authHash") {
+                remove.push(row.id);
+                continue;
+              }
+              remove.push(previous.id);
+            }
+            kept.set(value, row);
+          }
+          await tx.table(name).bulkDelete(remove);
+        }
+      });
+    this.version(5).stores({
+      meta: "++id, &key",
+      habitLogs: "++id, habitId, date, &[habitId+date]",
+      moods: "++id, &date, createdAt",
+      reflections: "++id, &date, createdAt",
+    });
   }
 }
 

@@ -1,209 +1,307 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, type Task } from "../../lib/db";
 import { Checkbox } from "../../components/Checkbox";
 import { EmptyState } from "../../components/EmptyState";
 import { Icon } from "../../components/Icon";
-import { CheckSquareOffset, Trash, Calendar, CaretUp, CaretDown } from "@phosphor-icons/react";
-import { formatShort, toDateInputValue } from "../../lib/date";
+import {
+  CheckSquareOffset,
+  Trash,
+  DotsThree,
+  CaretUp,
+  CaretDown,
+} from "@phosphor-icons/react";
+import { formatShort, fromDayKey } from "../../lib/date";
+import { useToday } from "../../lib/useToday";
 import { useSwipeToDelete } from "../../lib/useSwipeToDelete";
 import { useUndo } from "../../lib/useUndo";
+import { useQuery } from "../../lib/useQuery";
+import { useAction } from "../../lib/useAction";
+import { InlineError } from "../../components/InlineError";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
 import { FAB } from "../../components/FAB";
 import { BottomSheet } from "../../components/BottomSheet";
 
+const loadTasks = () => db.tasks.orderBy("createdAt").toArray();
+
 export function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { value: tasks, error: loadError } = useQuery(loadTasks, []);
   const [text, setText] = useState("");
-  const [dueDate, setDueDate] = useState<string | null>(null);
-  const [showDone, setShowDone] = useState(true);
+  const [dueDate, setDueDate] = useState("");
+  const [editing, setEditing] = useState<Task | null>(null);
+  const [showDone, setShowDone] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { pending, arm, undo, dismiss } = useUndo(() => void load());
+  const { pending, arm, undo, dismiss } = useUndo(() => {});
+  const action = useAction();
+  const today = useToday();
 
-  useEffect(() => {
-    void load();
-  }, []);
-
-  async function load() {
-    const all = await db.tasks.orderBy("createdAt").toArray();
-    setTasks(all);
+  function openEditor(task: Task | null) {
+    setEditing(task);
+    setText(task?.text ?? "");
+    setDueDate(task?.dueDate ?? "");
+    action.setError("");
+    setSheetOpen(true);
   }
-
-  async function add() {
-    const t = text.trim();
-    if (!t) return;
-    await db.tasks.add({
-      text: t,
-      dueDate,
-      completed: false,
-      completedAt: null,
-      createdAt: Date.now(),
+  async function save() {
+    const value = text.trim();
+    if (!value) return;
+    await action.run(async () => {
+      if (editing)
+        await db.tasks.update(editing.id!, {
+          text: value,
+          dueDate: dueDate || null,
+        });
+      else
+        await db.tasks.add({
+          text: value,
+          dueDate: dueDate || null,
+          completed: false,
+          completedAt: null,
+          createdAt: Date.now(),
+        });
+      setSheetOpen(false);
     });
-    setText("");
-    setDueDate(null);
-    setSheetOpen(false);
-    await load();
   }
-
   async function toggle(task: Task) {
-    const updated: Task = {
-      ...task,
-      completed: !task.completed,
-      completedAt: !task.completed ? Date.now() : null,
-    };
-    await db.tasks.put(updated);
-    await load();
+    await action.run(() =>
+      db.transaction("rw", db.tasks, async () => {
+        const current = await db.tasks.get(task.id!);
+        if (current)
+          await db.tasks.update(task.id!, {
+            completed: !current.completed,
+            completedAt: !current.completed ? Date.now() : null,
+          });
+      }),
+    );
   }
-
-  async function remove(id: number) {
-    const target = tasks.find((t) => t.id === id);
-    if (!target) return;
-    await db.tasks.delete(id);
-    await load();
-    void arm(`Deleted “${target.text}”`, () => db.tasks.add({ ...target }));
+  async function remove(task: Task) {
+    await action.run(async () => {
+      await db.tasks.delete(task.id!);
+      setSheetOpen(false);
+      arm("Task deleted", () => db.tasks.add(task));
+    });
   }
-
-  const open = tasks.filter((t) => !t.completed);
-  const done = tasks.filter((t) => t.completed);
-
+  const open = tasks
+    .filter((task) => !task.completed)
+    .sort(
+      (a, b) =>
+        (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") ||
+        a.createdAt - b.createdAt,
+    );
+  const done = tasks.filter((task) => task.completed);
   return (
     <div className="screen-pad">
-      {tasks.length === 0 ? (
+      <InlineError>
+        {loadError
+          ? "Could not load tasks. Please reopen the app to try again."
+          : !sheetOpen
+            ? action.error
+            : null}
+      </InlineError>
+      {!loadError && !tasks.length ? (
         <EmptyState
           icon={CheckSquareOffset}
-          title="No tasks yet"
-          message="A simple, flat list of things to do. Add one when you're ready."
+          title="Make room for today"
+          message="Add what needs doing. Small tasks count too."
         />
       ) : (
         <>
-          <ul className="mt-4 space-y-2">
+          {open.length > 0 && (
+            <p className="mb-3 text-xs font-medium uppercase tracking-widest text-softink">
+              {open.length} to do
+            </p>
+          )}
+          <ul className="divide-y divide-taupe">
             <AnimatePresence initial={false}>
-              {open.map((t) => (
-                <TaskRow key={t.id} task={t} onToggle={toggle} onDelete={remove} />
+              {open.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  today={today}
+                  disabled={action.busy}
+                  onToggle={toggle}
+                  onEdit={openEditor}
+                  onDelete={remove}
+                />
               ))}
             </AnimatePresence>
           </ul>
-
           {done.length > 0 && (
-            <div className="mt-6">
+            <section className="mt-6">
               <button
                 type="button"
-                onClick={() => setShowDone((s) => !s)}
-                className="interactive flex w-full items-center justify-between font-sans text-sm font-medium text-softink"
+                onClick={() => setShowDone((value) => !value)}
+                aria-expanded={showDone}
+                className="flex min-h-11 w-full items-center justify-between text-sm font-medium text-softink"
               >
-                <span>Done ({done.length})</span>
-                <Icon
-                  as={showDone ? CaretUp : CaretDown}
-                  size={16}
-                  color="#6B6058"
-                  weight="bold"
-                />
+                Done ({done.length})
+                <Icon as={showDone ? CaretUp : CaretDown} size={16} />
               </button>
-              <AnimatePresence initial={false}>
-                {showDone &&
-                  done.map((t) => (
+              {showDone && (
+                <ul className="divide-y divide-taupe">
+                  {done.map((task) => (
                     <TaskRow
-                      key={t.id}
-                      task={t}
+                      key={task.id}
+                      task={task}
+                      today={today}
+                      disabled={action.busy}
                       onToggle={toggle}
+                      onEdit={openEditor}
                       onDelete={remove}
-                      done
                     />
                   ))}
-              </AnimatePresence>
-            </div>
+                </ul>
+              )}
+            </section>
           )}
         </>
       )}
-
-      <FAB onPress={() => setSheetOpen(true)} label="Add a task" />
+      <FAB onPress={() => openEditor(null)} label="Add a task" />
       <BottomSheet
         open={sheetOpen}
         onClose={() => {
-          setSheetOpen(false);
-          setText("");
-          setDueDate(null);
+          if (!action.busy) setSheetOpen(false);
         }}
-        title="Add a task"
+        title={editing ? "Edit task" : "Add a task"}
       >
-        <input
-          autoFocus
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="Add a task"
-          className="w-full rounded-xl border border-taupe bg-surface px-4 py-3 font-sans text-base text-ink placeholder:text-softink focus:outline-none"
-        />
-        <label className="mt-3 flex items-center gap-2 font-sans text-sm text-softink">
-          <Icon as={Calendar} size={16} color="#6B6058" weight="light" />
-          <input
-            type="date"
-            value={toDateInputValue(dueDate)}
-            onChange={(e) => setDueDate(e.target.value || null)}
-            className="bg-surface text-softink focus:outline-none"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={add}
-          className="interactive mt-3 w-full rounded-full bg-terracotta px-4 py-3 font-sans text-base font-medium text-surface"
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
         >
-          Add
-        </button>
+          <InlineError>{action.error}</InlineError>
+          <label className="block text-sm font-medium text-ink">
+            Task
+            <input
+              autoFocus
+              required
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="What needs doing?"
+              className="mt-2 min-h-12 w-full rounded-xl border border-taupe bg-surface px-4 text-base text-ink placeholder:text-softink"
+            />
+          </label>
+          <label className="mt-4 block text-sm text-softink">
+            Due date · optional
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className="mt-2 block min-h-11 w-full rounded-xl border border-taupe bg-surface px-3 text-base text-ink"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={action.busy || !text.trim()}
+            className="mt-5 min-h-12 w-full rounded-full bg-terracotta px-4 font-medium text-onaccent"
+          >
+            {action.busy ? "Saving…" : editing ? "Save changes" : "Add task"}
+          </button>
+          {editing && (
+            <button
+              type="button"
+              disabled={action.busy}
+              onClick={() => remove(editing)}
+              className="mt-2 min-h-11 w-full text-sm text-rust"
+            >
+              Delete task
+            </button>
+          )}
+        </form>
       </BottomSheet>
-
-      <UndoSnackbar pending={pending} onUndo={undo} onDismiss={dismiss} />
+      <UndoSnackbar
+        pending={pending}
+        onUndo={() => {
+          void action.run(undo);
+        }}
+        onDismiss={dismiss}
+      />
     </div>
   );
 }
 
-interface TaskRowProps {
+function TaskRow({
+  task,
+  today,
+  disabled,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
   task: Task;
-  onToggle: (t: Task) => void;
-  onDelete: (id: number) => void;
-  done?: boolean;
-}
-
-function TaskRow({ task, onToggle, onDelete, done }: TaskRowProps) {
-  const swipe = useSwipeToDelete(() => onDelete(task.id!));
-
+  today: string;
+  disabled: boolean;
+  onToggle: (task: Task) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
+}) {
+  const swipe = useSwipeToDelete(() => onDelete(task));
+  const due =
+    task.dueDate === today
+      ? "Due today"
+      : task.dueDate
+        ? `${task.dueDate < today && !task.completed ? "Overdue · " : "Due "}${formatShort(fromDayKey(task.dueDate).getTime())}`
+        : null;
   return (
     <motion.li
       layout
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      exit={{ opacity: 0, height: 0 }}
-      className="relative overflow-hidden rounded-xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="relative overflow-hidden"
     >
-      <div className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-rust">
-        <Icon as={Trash} size={20} color="#FDFBF7" weight="light" />
+      <div
+        aria-hidden="true"
+        className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-rust"
+      >
+        <Icon as={Trash} size={20} color="var(--color-onaccent)" />
       </div>
       <motion.div
         {...swipe.handlers}
         animate={{ x: swipe.x }}
-        transition={{ type: "spring", stiffness: 500, damping: 40 }}
-        className="relative flex items-center gap-3 rounded-xl border border-taupe bg-surface px-4 py-3 shadow-page"
+        style={{ touchAction: "pan-y" }}
+        className="relative flex items-center gap-2 bg-paper py-3"
+        onClickCapture={(event) => {
+          if (swipe.consumeClick()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
       >
         <Checkbox
           checked={task.completed}
+          disabled={disabled}
           onChange={() => onToggle(task)}
           label={`Mark "${task.text}" ${task.completed ? "incomplete" : "done"}`}
         />
-        <div className="min-w-0 flex-1">
-          <div
-            className={[
-              "truncate font-sans text-base",
-              done ? "text-softink line-through" : "text-ink",
-            ].join(" ")}
+        <button
+          type="button"
+          onClick={() => onEdit(task)}
+          className="min-w-0 flex-1 py-1 text-left"
+        >
+          <span
+            className={`block break-words text-base ${task.completed ? "text-softink line-through" : "text-ink"}`}
           >
             {task.text}
-          </div>
-          {task.dueDate && (
-            <div className="font-sans text-xs text-softink">
-              Due {formatShort(new Date(task.dueDate).getTime())}
-            </div>
+          </span>
+          {due && (
+            <span
+              className={`mt-1 block text-xs ${task.dueDate! < today && !task.completed ? "text-rust" : "text-softink"}`}
+            >
+              {due}
+            </span>
           )}
-        </div>
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onEdit(task)}
+          aria-label={`Options for ${task.text}`}
+          className="tap-target flex shrink-0 items-center justify-center"
+        >
+          <Icon as={DotsThree} size={22} />
+        </button>
       </motion.div>
     </motion.li>
   );

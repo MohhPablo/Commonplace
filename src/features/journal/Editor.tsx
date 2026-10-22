@@ -1,41 +1,50 @@
-import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
+import { useState } from "react";
+import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
+  TextAa,
   TextB,
   TextItalic,
   TextHTwo,
   ListBullets,
   ListNumbers,
   Quotes,
+  ArrowUUpLeft,
+  ArrowUUpRight,
+  Keyboard,
   type Icon,
 } from "@phosphor-icons/react";
 
-/** Count words in editor plain text (spec §5.1 — subtle, not a prominent stat). */
 export function countWords(text: string): number {
-  const trimmed = text.trim();
-  if (!trimmed) return 0;
-  return trimmed.split(/\s+/).length;
+  return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
-interface ToolbarButtonProps {
-  active: boolean;
+type ToolProps = {
+  active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   label: string;
   icon: Icon;
-}
-
-function ToolbarButton({ active, onClick, label, icon: Glyph }: ToolbarButtonProps) {
+};
+function Tool({
+  active = false,
+  disabled = false,
+  onClick,
+  label,
+  icon: Glyph,
+}: ToolProps) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
-      onMouseDown={(e) => e.preventDefault()}
+      disabled={disabled}
+      onPointerDown={(event) => event.preventDefault()}
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-lg"
-      style={{ background: active ? "#C1502D" : "transparent" }}
+      className={`writing-tool ${active ? "is-active" : ""}`}
     >
-      <Glyph size={20} color="#FDFBF7" weight="bold" />
+      <Glyph size={22} weight={active ? "fill" : "regular"} />
     </button>
   );
 }
@@ -43,78 +52,173 @@ function ToolbarButton({ active, onClick, label, icon: Glyph }: ToolbarButtonPro
 interface EditorProps {
   initialContent: unknown;
   onChange: (content: unknown, wordCount: number) => void;
+  heading?: string;
+  wordCount?: number;
 }
 
-/**
- * Distraction-free Tiptap editor (spec §5.1). A floating BubbleMenu appears
- * only when text is selected, offering bold/italic/heading/list/blockquote.
- * Body line-height is generous (1.6+, §3) and uses the serif/sans pairing.
- */
-export function Editor({ initialContent, onChange }: EditorProps) {
+/** A full-height page with selection-preserving tools above the keyboard. */
+export function Editor({
+  initialContent,
+  onChange,
+  heading,
+  wordCount = 0,
+}: EditorProps) {
+  const [formatting, setFormatting] = useState(false);
+  const [bookFont, setBookFont] = useState(false);
   const editor = useEditor({
+    shouldRerenderOnTransaction: false,
+    autofocus: initialContent === "" ? "end" : false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
+        link: false,
+        underline: false,
       }),
     ],
     content: (initialContent as object) ?? "",
     editorProps: {
       attributes: {
-        class: "journal-prose focus:outline-none min-h-[50svh]",
+        role: "textbox",
+        "aria-label": "Journal entry",
+        "aria-multiline": "true",
+        spellcheck: "true",
+        autocorrect: "on",
+        autocapitalize: "sentences",
+        class: "journal-prose",
+        "data-placeholder": "What's on your mind?",
       },
+      scrollThreshold: { top: 24, bottom: 48, left: 0, right: 0 },
+      scrollMargin: { top: 24, bottom: 48, left: 0, right: 0 },
     },
-    onUpdate: ({ editor }) => {
-      onChange(editor.getJSON(), countWords(editor.getText()));
-    },
+    onUpdate: ({ editor }) =>
+      onChange(editor.getJSON(), countWords(editor.getText())),
   });
-
-  if (!editor) return <div className="min-h-[50svh]" />;
+  const state = useEditorState({
+    editor,
+    selector: ({ editor }) =>
+      editor
+        ? {
+            bold: editor.isActive("bold"),
+            italic: editor.isActive("italic"),
+            heading: editor.isActive("heading"),
+            bullets: editor.isActive("bulletList"),
+            numbers: editor.isActive("orderedList"),
+            quote: editor.isActive("blockquote"),
+            undo: editor.can().undo(),
+            redo: editor.can().redo(),
+            empty: editor.isEmpty,
+          }
+        : null,
+  });
+  if (!editor || !state)
+    return (
+      <p role="status" className="p-6 text-sm text-softink">
+        Opening your page…
+      </p>
+    );
+  const focus = () =>
+    editor.chain().focus(undefined, { scrollIntoView: false });
 
   return (
-    <div className="relative">
-      <BubbleMenu
-        editor={editor}
-        tippyOptions={{ duration: 120 }}
-        className="flex gap-1 rounded-xl border border-taupe bg-ink p-1 shadow-lift"
-      >
-        <ToolbarButton
-          label="Bold"
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          icon={TextB}
-        />
-        <ToolbarButton
-          label="Italic"
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          icon={TextItalic}
-        />
-        <ToolbarButton
-          label="Heading"
-          active={editor.isActive("heading", { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          icon={TextHTwo}
-        />
-        <ToolbarButton
-          label="Bullet list"
-          active={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          icon={ListBullets}
-        />
-        <ToolbarButton
-          label="Numbered list"
-          active={editor.isActive("orderedList")}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          icon={ListNumbers}
-        />
-        <ToolbarButton
-          label="Quote"
-          active={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          icon={Quotes}
-        />
-      </BubbleMenu>
-      <EditorContent editor={editor} />
+    <div className={`writing-editor ${bookFont ? "book-font" : ""}`}>
+      <div className="editor-scroll" data-empty={state.empty}>
+        {heading && (
+          <div className="editor-dateline">
+            <h2>{heading}</h2>
+            <p>
+              {wordCount} {wordCount === 1 ? "word" : "words"}
+            </p>
+          </div>
+        )}
+        <EditorContent editor={editor} className="editor-content" />
+      </div>
+      <div className="editor-dock glass-toolbar">
+        {formatting && (
+          <div
+            role="toolbar"
+            aria-label="Text formatting"
+            className="formatting-row"
+          >
+            <Tool
+              label="Bold"
+              active={state.bold}
+              onClick={() => focus().toggleBold().run()}
+              icon={TextB}
+            />
+            <Tool
+              label="Italic"
+              active={state.italic}
+              onClick={() => focus().toggleItalic().run()}
+              icon={TextItalic}
+            />
+            <Tool
+              label="Heading"
+              active={state.heading}
+              onClick={() => focus().toggleHeading({ level: 2 }).run()}
+              icon={TextHTwo}
+            />
+            <Tool
+              label="Numbered list"
+              active={state.numbers}
+              onClick={() => focus().toggleOrderedList().run()}
+              icon={ListNumbers}
+            />
+            <Tool
+              label="Quote"
+              active={state.quote}
+              onClick={() => focus().toggleBlockquote().run()}
+              icon={Quotes}
+            />
+            <button
+              type="button"
+              className={`writing-tool font-choice ${bookFont ? "is-active" : ""}`}
+              aria-label="Book font"
+              aria-pressed={bookFont}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => setBookFont((value) => !value)}
+            >
+              Aa
+            </button>
+          </div>
+        )}
+        <div
+          role="toolbar"
+          aria-label="Writing tools"
+          className="writing-tools"
+        >
+          <Tool
+            label="Formatting"
+            active={formatting}
+            onClick={() => setFormatting((value) => !value)}
+            icon={TextAa}
+          />
+          <Tool
+            label="Bullet list"
+            active={state.bullets}
+            onClick={() => focus().toggleBulletList().run()}
+            icon={ListBullets}
+          />
+          <div className="tool-divider" />
+          <Tool
+            label="Undo typing"
+            disabled={!state.undo}
+            onClick={() => focus().undo().run()}
+            icon={ArrowUUpLeft}
+          />
+          <Tool
+            label="Redo typing"
+            disabled={!state.redo}
+            onClick={() => focus().redo().run()}
+            icon={ArrowUUpRight}
+          />
+          <div className="flex-1" />
+          <Tool
+            label="Hide keyboard"
+            onClick={() => editor.commands.blur()}
+            icon={Keyboard}
+          />
+        </div>
+      </div>
     </div>
   );
 }

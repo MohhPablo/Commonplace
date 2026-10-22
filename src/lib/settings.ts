@@ -4,18 +4,26 @@ import { db } from "./db";
 const PREFIX = "setting:";
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
-  const row = await db.meta.where("key").equals(PREFIX + key).first();
+  const row = await db.meta
+    .where("key")
+    .equals(PREFIX + key)
+    .first();
   if (!row) return fallback;
   return row.value as T;
 }
 
 export async function setSetting<T>(key: string, value: T): Promise<void> {
-  const existing = await db.meta.where("key").equals(PREFIX + key).first();
-  if (existing?.id != null) {
-    await db.meta.update(existing.id, { value });
-  } else {
-    await db.meta.put({ key: PREFIX + key, value });
-  }
+  await db.transaction("rw", db.meta, async () => {
+    const existing = await db.meta
+      .where("key")
+      .equals(PREFIX + key)
+      .first();
+    if (existing?.id != null) {
+      await db.meta.update(existing.id, { value });
+    } else {
+      await db.meta.put({ key: PREFIX + key, value });
+    }
+  });
 }
 
 // Daily reminder at a user-chosen "HH:MM" local time, or null when disabled.
@@ -38,6 +46,19 @@ export async function getTheme(): Promise<Theme> {
 
 export async function setTheme(theme: Theme): Promise<void> {
   await setSetting<Theme>("theme", theme);
+  applyTheme(theme);
+}
+
+export function applyTheme(theme: Theme): void {
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute(
+    "content",
+    {
+      paper: "#F2F2F5",
+      sepia: "#F1E4CF",
+      dark: "#101218",
+    }[theme],
+  );
 }
 
 // Onboarding: whether the first-run tour has been shown.

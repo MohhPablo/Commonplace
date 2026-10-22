@@ -23,9 +23,15 @@ export function Icon({
   active?: boolean;
 }) {
   const resolvedWeight: IconWeight = weight ?? (active ? "duotone" : "light");
-  const resolvedColor = color ?? (active ? "#c1502d" : "#6b6058");
+  const resolvedColor =
+    color ?? (active ? "var(--color-terracotta)" : "var(--color-softink)");
   return (
-    <Glyph size={size} weight={resolvedWeight} color={resolvedColor} {...rest} />
+    <Glyph
+      size={size}
+      weight={resolvedWeight}
+      color={resolvedColor}
+      {...rest}
+    />
   );
 }
 

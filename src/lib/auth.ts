@@ -1,4 +1,7 @@
 import { db } from "./db";
+import { discardPendingSaves } from "./autosave";
+import { stopReminder } from "./notifications";
+import { clearBadge } from "./badge";
 
 /**
  * Optional app password, stored as a PBKDF2 hash (never plaintext).
@@ -14,7 +17,10 @@ interface StoredHash {
   hash: number[];
 }
 
-async function derive(password: string, salt: Uint8Array): Promise<ArrayBuffer> {
+async function derive(
+  password: string,
+  salt: Uint8Array,
+): Promise<ArrayBuffer> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -24,7 +30,12 @@ async function derive(password: string, salt: Uint8Array): Promise<ArrayBuffer> 
     ["deriveBits"],
   );
   return crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: salt as BufferSource, iterations: ITERATIONS, hash: "SHA-256" },
+    {
+      name: "PBKDF2",
+      salt: salt as BufferSource,
+      iterations: ITERATIONS,
+      hash: "SHA-256",
+    },
     keyMaterial,
     256,
   );
@@ -42,7 +53,10 @@ export async function setPassword(password: string): Promise<void> {
     salt: Array.from(salt),
     hash: Array.from(new Uint8Array(bits)),
   };
-  await db.meta.put({ key: AUTH_KEY, value });
+  await db.transaction("rw", db.meta, async () => {
+    const existing = await db.meta.where("key").equals(AUTH_KEY).first();
+    await db.meta.put({ ...existing, key: AUTH_KEY, value });
+  });
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
@@ -58,24 +72,15 @@ export async function verifyPassword(password: string): Promise<boolean> {
 }
 
 export async function clearPassword(): Promise<void> {
-  const row = await db.meta.where("key").equals(AUTH_KEY).first();
-  if (row?.id != null) await db.meta.delete(row.id);
+  await db.meta.where("key").equals(AUTH_KEY).delete();
 }
 
 /** Wipe all local data (last resort for a forgotten password). */
 export async function resetAllData(): Promise<void> {
-  await db.transaction(
-    "rw",
-    [db.entries, db.tasks, db.priorities, db.habits, db.habitLogs, db.meta],
-    async () => {
-      await Promise.all([
-        db.entries.clear(),
-        db.tasks.clear(),
-        db.priorities.clear(),
-        db.habits.clear(),
-        db.habitLogs.clear(),
-        db.meta.clear(),
-      ]);
-    },
-  );
+  await discardPendingSaves();
+  stopReminder();
+  await db.transaction("rw", db.tables, async () => {
+    await Promise.all(db.tables.map((table) => table.clear()));
+  });
+  await clearBadge();
 }

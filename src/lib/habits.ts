@@ -28,19 +28,36 @@ export function currentStreak(habitId: number, logs: HabitLog[]): number {
 }
 
 /** True if the habit is logged complete for the given day key. */
-export function isDoneOn(logs: HabitLog[], habitId: number, key: string): boolean {
-  return logs.some((l) => l.habitId === habitId && l.date === key && l.completed);
+export function isDoneOn(
+  logs: HabitLog[],
+  habitId: number,
+  key: string,
+): boolean {
+  return logs.some(
+    (l) => l.habitId === habitId && l.date === key && l.completed,
+  );
 }
 
 /** Toggle today's completion for a habit (spec §5.4 one-tap today). */
-export async function toggleToday(habit: Habit, logs: HabitLog[]): Promise<boolean> {
+export async function toggleToday(habit: Habit): Promise<boolean> {
   const key = dayKey();
-  const existing = logs.find((l) => l.habitId === habit.id! && l.date === key);
-  const next = !(existing?.completed ?? false);
-  if (existing) {
-    await db.habitLogs.update(existing.id!, { completed: next });
-  } else {
-    await db.habitLogs.add({ habitId: habit.id!, date: key, completed: next });
-  }
-  return next;
+  return db.transaction("rw", db.habits, db.habitLogs, async () => {
+    if (habit.id == null || !(await db.habits.get(habit.id)))
+      throw new Error("Habit no longer exists.");
+    const existing = await db.habitLogs
+      .where("[habitId+date]")
+      .equals([habit.id, key])
+      .first();
+    const next = !(existing?.completed ?? false);
+    if (existing) {
+      await db.habitLogs.update(existing.id!, { completed: next });
+    } else {
+      await db.habitLogs.add({
+        habitId: habit.id!,
+        date: key,
+        completed: next,
+      });
+    }
+    return next;
+  });
 }
