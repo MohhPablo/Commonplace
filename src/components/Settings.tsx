@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "./Icon";
 import {
   Bell,
@@ -11,6 +12,8 @@ import {
   Check,
   CaretUpDown,
   BellSlash,
+  CaretRight,
+  Password,
   type IconProps,
 } from "@phosphor-icons/react";
 import type { ComponentType, CSSProperties } from "react";
@@ -285,6 +288,15 @@ export function Settings({
     }
   }
 
+  const pinTitle: Record<PinMode, string> = {
+    idle: "",
+    create: "Set Passcode",
+    createConfirm: "Set Passcode",
+    current: "Change Passcode",
+    next: "Change Passcode",
+    nextConfirm: "Change Passcode",
+    verifyRemove: "Turn Off Passcode",
+  };
   const pinPrompt: Record<PinMode, string | null> = {
     idle: null,
     create: "Enter a new passcode",
@@ -388,60 +400,49 @@ export function Settings({
 
       <h3 className="settings-label">Privacy</h3>
       <section className="settings-group">
-        {pinMode === "idle" ? (
-          <div className="settings-row">
-            <Tile icon={Lock} color="var(--tint-blue)" />
-            <span className="row-label">
-              Passcode
-              <span className="block text-[13px] text-softink">
-                {hasPassword ? "On · locks when you leave" : "Off"}
-              </span>
-            </span>
-            {!hasPassword ? (
-              <button
-                type="button"
-                disabled={pwBusy}
-                onClick={startSet}
-                className="settings-link press"
-              >
-                Set
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={pwBusy}
-                  onClick={startChange}
-                  className="settings-link press"
-                >
-                  Change
-                </button>
-                <button
-                  type="button"
-                  disabled={pwBusy}
-                  onClick={startRemove}
-                  className="settings-link press"
-                  style={{ "--tint": "var(--color-rust)" } as CSSProperties}
-                >
-                  Remove
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="settings-block">
-            <p className="mt-2 text-center text-[17px] font-semibold">
-              {pinPrompt[pinMode]}
-            </p>
-            <div className="mt-5">
-              <PinPad
-                key={pinKey}
-                length={4}
-                onComplete={onPin}
-                disabled={pwBusy}
-              />
-            </div>
-            <div className="mt-3 flex justify-center">
+        <div className="settings-row">
+          <Tile icon={Lock} color="var(--tint-blue)" />
+          <span className="row-label">Passcode</span>
+          <Switch
+            label="Passcode"
+            checked={hasPassword}
+            disabled={pwBusy || pinMode !== "idle"}
+            onChange={(on) => (on ? startSet() : startRemove())}
+          />
+        </div>
+        {hasPassword && (
+          <button
+            type="button"
+            disabled={pwBusy}
+            onClick={startChange}
+            className="settings-row"
+          >
+            <Tile icon={Password} color="var(--tint-gray)" />
+            <span className="row-label">Change Passcode</span>
+            <Icon as={CaretRight} size={16} weight="bold" />
+          </button>
+        )}
+      </section>
+      {pinMode === "idle" && (
+        <p role="status" className="settings-note">
+          {pwMsg ||
+            (hasPassword
+              ? "Commonplace locks whenever you leave it."
+              : "Ask for a passcode whenever Commonplace opens.")}
+        </p>
+      )}
+      <AnimatePresence>
+        {pinMode !== "idle" && (
+          <motion.div
+            className="passcode-screen mesh"
+            role="group"
+            aria-label={pinTitle[pinMode]}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 380, damping: 40 }}
+          >
+            <div className="passcode-header">
               <button
                 type="button"
                 onClick={() => {
@@ -453,15 +454,24 @@ export function Settings({
               >
                 Cancel
               </button>
+              <h3>{pinTitle[pinMode]}</h3>
+              <span aria-hidden="true" />
             </div>
-          </div>
+            <div className="passcode-body">
+              <p className="passcode-prompt">{pinPrompt[pinMode]}</p>
+              <PinPad
+                key={pinKey}
+                length={4}
+                onComplete={onPin}
+                disabled={pwBusy}
+              />
+              <p role="alert" className="passcode-error">
+                {pwMsg}
+              </p>
+            </div>
+          </motion.div>
         )}
-      </section>
-      {pwMsg && (
-        <p role="status" className="settings-note">
-          {pwMsg}
-        </p>
-      )}
+      </AnimatePresence>
 
       <h3 className="settings-label">Reminders</h3>
       <section className="settings-group">
@@ -629,6 +639,38 @@ const THEMES: {
     card: "#2c2c2e",
   },
 ];
+
+/** An iOS switch: a green track and a sliding thumb. */
+function Switch({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="ios-switch"
+    >
+      <motion.span
+        className="ios-switch-thumb"
+        initial={false}
+        animate={{ x: checked ? 20 : 0 }}
+        transition={{ type: "spring", stiffness: 600, damping: 34 }}
+      />
+    </button>
+  );
+}
 
 /** A Settings-style rounded square icon. */
 function Tile({

@@ -28,6 +28,9 @@ The regression suite covers database upgrades, PIN changes, backup validation, r
 
 - Each screen opens with an iOS-style large title that collapses into the navigation bar on scroll. A floating glass tab bar sits above the home indicator, and each space has its own tint: Journal terracotta, Tasks blue, Priorities indigo, Habits green, Review pink.
 - Launch: iOS shows a generated launch image, the HTML boot splash repeats it exactly, then the animated splash zooms into the app. Regenerate the icon and launch images with `npm i --no-save playwright && node scripts/gen-icons.mjs`.
+- Screens sit on a soft wallpaper in the section's tint, with frosted cards and liquid-glass controls (translucent, blurred, with a lit rim).
+- iOS 26 shortens a Home Screen app's viewport by the status bar height when the page is no taller than the screen (WebKit bug 301108). `index.html` gives the page a full-screen `min-height` in standalone mode so the app reaches the bottom edge.
+- Updates: a page opened within the last 10 seconds, untouched and with nothing unsaved, installs a waiting update and reloads straight away. After that, a toast offers the update; Settings → Check for updates still works at any time.
 - Theme defaults to System (follows the device's light/dark setting); Light, Sepia and Dark remain available in Settings.
 - Sheets close from their grabber, heading, or a downward pull on non-interactive content at the top. Scrolling and editing fields keep their usual behavior.
 - The journal opens as a full-height writing page, with a keyboard-aware toolbar, undo/redo, lists, formatting, and an optional book font. Done saves before returning to entries.

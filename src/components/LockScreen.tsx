@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { verifyPassword, resetAllData } from "../lib/auth";
 import { PinPad } from "./PinPad";
+import { Icon } from "./Icon";
+import { LockSimple } from "@phosphor-icons/react";
 
 const MAX_ATTEMPTS = 5;
 
@@ -63,14 +65,10 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       animate={{ opacity: 1 }}
       className="lock-screen"
     >
-      <img
-        src="/icons/icon.svg"
-        alt=""
-        className="h-14 w-14 rounded-[13px] shadow-lg"
-      />
+      <Icon as={LockSimple} size={26} color="currentColor" weight="fill" />
       {!confirmReset ? (
-        <div className="mt-5 w-full max-w-xs">
-          <p className="mb-7 text-center text-[20px] font-semibold">
+        <div className="mt-4 w-full max-w-xs">
+          <p className="mb-8 text-center text-[20px] font-medium">
             Enter your passcode to unlock
           </p>
           <motion.div
@@ -84,10 +82,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
               disabled={busy || cooldown > 0}
             />
           </motion.div>
-          <p
-            role="alert"
-            className="mt-6 min-h-5 text-center text-[15px] text-rust"
-          >
+          <p role="alert" className="mt-6 min-h-5 text-center text-[15px]">
             {error
               ? cooldown
                 ? `Try again in ${cooldown} seconds.`
@@ -105,9 +100,9 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           </div>
         </div>
       ) : (
-        <div className="card mt-6 w-full max-w-sm p-5 text-center">
+        <div className="card glass mt-6 w-full max-w-sm p-5 text-center">
           <h2 className="text-[20px] font-bold">Reset Commonplace?</h2>
-          <p className="mt-2 text-[15px] leading-snug text-softink">
+          <p className="mt-2 text-[15px] leading-snug opacity-80">
             Resetting wipes all journal entries, tasks, priorities, habits,
             moods, reflections, and settings. This cannot be undone.
           </p>

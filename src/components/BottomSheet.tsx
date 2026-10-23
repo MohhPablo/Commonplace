@@ -17,7 +17,7 @@ import {
 } from "framer-motion";
 import { Icon } from "./Icon";
 import { shouldDismissSheet } from "../lib/sheetGesture";
-import { CaretLeft, X } from "@phosphor-icons/react";
+import { X } from "@phosphor-icons/react";
 
 export function BottomSheet({
   open,
@@ -296,7 +296,7 @@ export function BottomSheet({
               aria-modal="true"
               aria-labelledby={titleId}
               tabIndex={-1}
-              className="sheet-panel glass-sheet"
+              className={`sheet-panel ${page ? "mesh" : "glass-sheet"}`}
               style={{ y }}
             >
               {!page && (
@@ -325,21 +325,8 @@ export function BottomSheet({
                 onPointerCancel={reset}
                 onLostPointerCapture={reset}
               >
-                {page && (
-                  <button
-                    type="button"
-                    className="glass-circle press"
-                    onClick={() => close.current()}
-                    aria-label="Close Settings"
-                  >
-                    <Icon
-                      as={CaretLeft}
-                      size={20}
-                      color="var(--color-ink)"
-                      weight="bold"
-                    />
-                  </button>
-                )}
+                {/* A page is a modal: Done closes it, as in iOS Settings. */}
+                {page && <span aria-hidden="true" />}
                 {!page && action && (
                   <button
                     type="button"
@@ -362,7 +349,7 @@ export function BottomSheet({
                       type="button"
                       onClick={() => close.current()}
                       aria-label="Close"
-                      className="sheet-action press"
+                      className="glass-capsule glass press"
                     >
                       Done
                     </button>

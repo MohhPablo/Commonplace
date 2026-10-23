@@ -59,16 +59,14 @@ describe("passcode settings", () => {
   it("sets a matching PIN and changes it through the full flow", async () => {
     const user = userEvent.setup();
     render(<Settings open onClose={() => {}} onPasswordChanged={() => {}} />);
-    await user.click(
-      await screen.findByRole("button", { name: "Set", exact: true }),
-    );
+    await user.click(await screen.findByRole("switch", { name: "Passcode" }));
     await enterPin(user, "2468");
     await screen.findByText("Re-enter your new passcode");
     await enterPin(user, "2468");
     await screen.findByText("Passcode saved.");
     expect(await verifyPassword("2468")).toBe(true);
     await user.click(
-      screen.getByRole("button", { name: "Change", exact: true }),
+      screen.getByRole("button", { name: "Change Passcode", exact: true }),
     );
     await enterPin(user, "2468");
     await screen.findByText("Enter a new passcode");

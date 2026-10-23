@@ -348,8 +348,9 @@ function PriorityItem({
       dragControls={controls}
       onDragEnd={onDragEnd}
       layout
-      className="flex items-center gap-1 bg-surface pr-1"
+      className="flex items-center gap-1 pr-1"
       whileDrag={{
+        backgroundColor: "var(--color-surface)",
         scale: 1.03,
         boxShadow: "0 12px 30px rgb(0 0 0 / 16%)",
         zIndex: 2,

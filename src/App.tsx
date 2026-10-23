@@ -29,6 +29,8 @@ import { flushPendingSaves, hasPendingSaves } from "./lib/autosave";
 import { WritingMode } from "./lib/WritingMode";
 import { ModalAvailability } from "./lib/ModalAvailability";
 import { useToday } from "./lib/useToday";
+import { appUpdater } from "./lib/updates";
+import { toast } from "sonner";
 import { fromDayKey } from "./lib/date";
 
 // Only the first session of a page load plays the opening animation, so an
@@ -67,6 +69,23 @@ export function App() {
   const [launching] = useState(() => performance.now() - launchedAt < 1500);
   const today = useToday();
   const title = TABS.find((tab) => tab.key === active)?.label;
+  // An update that arrives mid-session is offered, never forced on a draft.
+  useEffect(
+    () =>
+      appUpdater.subscribe(() => {
+        if (appUpdater.getSnapshot().status !== "available")
+          return void toast.dismiss("app-update");
+        toast("A new version of Commonplace is ready", {
+          id: "app-update",
+          duration: Infinity,
+          action: {
+            label: "Update",
+            onClick: () => void appUpdater.update(),
+          },
+        });
+      }),
+    [],
+  );
   // Sheets render outside the session, so the section tint lives on <html> too.
   useEffect(() => {
     document.documentElement.dataset.section = active;
@@ -189,6 +208,7 @@ export function App() {
                       data-scrolled={scrolled}
                       className={`app-session ${writing ? "is-writing" : ""} ${launching ? "is-launching" : ""}`}
                     >
+                      <div className="app-backdrop mesh" aria-hidden="true" />
                       <header className="app-header">
                         <div className="app-header-blur" aria-hidden="true" />
                         <span className="app-header-title" aria-hidden="true">
@@ -219,7 +239,6 @@ export function App() {
                             setScrolled(event.currentTarget.scrollTop > 40)
                           }
                         >
-                          <div className="ambient" aria-hidden="true" />
                           <div className="large-title">
                             <p className="eyebrow">
                               {fromDayKey(today).toLocaleDateString(undefined, {

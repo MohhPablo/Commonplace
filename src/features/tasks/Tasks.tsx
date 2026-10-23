@@ -407,9 +407,11 @@ function TaskRow({
       transition={{ duration: 0.22, ease: [0.3, 0.7, 0.4, 1] }}
       className="relative overflow-hidden"
     >
+      {/* Rows are frosted glass, so the delete action appears only mid-swipe. */}
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-rust"
+        className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-rust transition-opacity"
+        style={{ opacity: swipe.x < 0 ? 1 : 0 }}
       >
         <Icon as={Trash} size={22} color="#fff" weight="fill" />
       </div>

@@ -1,5 +1,5 @@
 import { useSyncExternalStore, type CSSProperties } from "react";
-import { ArrowsClockwise } from "@phosphor-icons/react";
+import { ArrowsClockwise, Info } from "@phosphor-icons/react";
 import { APP_VERSION } from "../lib/version";
 import { appUpdater } from "../lib/updates";
 import { Icon } from "./Icon";
@@ -9,6 +9,7 @@ export function AppUpdate() {
     appUpdater.subscribe,
     appUpdater.getSnapshot,
   );
+  const busy = state.status === "checking" || state.status === "applying";
   return (
     <>
       <h3 className="settings-label">About</h3>
@@ -18,30 +19,26 @@ export function AppUpdate() {
             className="icon-tile"
             style={{ "--tile": "var(--tint-gray)" } as CSSProperties}
           >
-            <Icon as={ArrowsClockwise} size={18} color="#fff" weight="bold" />
+            <Icon as={Info} size={18} color="#fff" weight="fill" />
           </span>
-          <span className="row-label">
-            Version
-            <span
-              role="status"
-              className={`block text-[13px] leading-snug ${state.status === "error" ? "text-rust" : "text-softink"}`}
-            >
-              {state.message}
-            </span>
-          </span>
+          <span className="row-label">Version</span>
           <span className="settings-value rounded-num">{APP_VERSION}</span>
         </div>
-        <div className="settings-block !pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              void appUpdater.update();
-            }}
-            disabled={
-              state.status === "checking" || state.status === "applying"
-            }
-            className="settings-link press w-full !min-h-11"
+        <button
+          type="button"
+          onClick={() => {
+            void appUpdater.update();
+          }}
+          disabled={busy}
+          className="settings-row"
+        >
+          <span
+            className="icon-tile"
+            style={{ "--tile": "var(--tint-blue)" } as CSSProperties}
           >
+            <Icon as={ArrowsClockwise} size={18} color="#fff" weight="bold" />
+          </span>
+          <span className="row-label text-[var(--tint)]">
             {state.status === "checking"
               ? "Checking…"
               : state.status === "applying"
@@ -49,9 +46,16 @@ export function AppUpdate() {
                 : state.status === "available"
                   ? "Install update"
                   : "Check for updates"}
-          </button>
-        </div>
+          </span>
+        </button>
       </section>
+      <p
+        role="status"
+        className="settings-note"
+        style={state.status === "error" ? { color: "var(--color-rust)" } : {}}
+      >
+        {state.message}
+      </p>
     </>
   );
 }

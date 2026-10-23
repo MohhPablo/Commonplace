@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAppUpdater } from "../src/lib/updates";
+import { createAppUpdater, createLaunchWindow } from "../src/lib/updates";
 
 function worker(overrides: Partial<ServiceWorkerRegistration> = {}) {
   return {
@@ -150,4 +150,19 @@ it("reloads a stale page if another tab has already activated the update", async
     reload,
   );
   expect(reload).toHaveBeenCalledOnce();
+});
+
+describe("launch window", () => {
+  it("installs updates only before the first touch, and only briefly", () => {
+    const target = new EventTarget() as unknown as Window;
+    let time = 0;
+    const fresh = createLaunchWindow(target, () => time, 10_000);
+    expect(fresh()).toBe(true);
+    time = 10_001;
+    expect(fresh()).toBe(false);
+    time = 0;
+    const touched = createLaunchWindow(target, () => time, 10_000);
+    target.dispatchEvent(new Event("pointerdown"));
+    expect(touched()).toBe(false);
+  });
 });

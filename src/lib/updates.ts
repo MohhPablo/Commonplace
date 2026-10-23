@@ -1,4 +1,4 @@
-import { flushPendingSaves } from "./autosave";
+import { flushPendingSaves, hasPendingSaves } from "./autosave";
 
 export type UpdateState = {
   status: "idle" | "checking" | "available" | "applying" | "current" | "error";
@@ -173,9 +173,36 @@ export async function activateDownloadedUpdate(
   });
 }
 
+/**
+ * A page that has only just opened has nothing to lose, so it installs a
+ * waiting update straight away instead of running an old version until
+ * someone finds Settings. Any touch or key press ends that window; after
+ * it, updates are offered rather than applied.
+ */
+export function createLaunchWindow(
+  target: Pick<Window, "addEventListener" | "removeEventListener">,
+  now: () => number = () => performance.now(),
+  duration = 10_000,
+) {
+  const openedAt = now();
+  let touched = false;
+  const touch = () => {
+    touched = true;
+    target.removeEventListener("pointerdown", touch, true);
+    target.removeEventListener("keydown", touch, true);
+  };
+  target.addEventListener("pointerdown", touch, true);
+  target.addEventListener("keydown", touch, true);
+  return () => !touched && now() - openedAt < duration && !hasPendingSaves();
+}
+
 /** Native registration avoids Workbox Window's external-update reload heuristic. */
 export async function registerAppUpdates(container: ServiceWorkerContainer) {
   const loadedController = container.controller;
+  const fresh = createLaunchWindow(window);
+  const installIfFresh = () => {
+    if (fresh()) void appUpdater.update();
+  };
   try {
     const registration = await container.register("/sw.js", {
       updateViaCache: "none",
@@ -189,8 +216,10 @@ export async function registerAppUpdates(container: ServiceWorkerContainer) {
       const worker = registration.installing;
       if (!worker) return;
       const changed = () => {
-        if (worker.state === "installed" && registration.waiting)
+        if (worker.state === "installed" && registration.waiting) {
           appUpdater.available();
+          installIfFresh();
+        }
         if (["installed", "activated", "redundant"].includes(worker.state))
           worker.removeEventListener("statechange", changed);
       };
@@ -199,6 +228,12 @@ export async function registerAppUpdates(container: ServiceWorkerContainer) {
     };
     registration.addEventListener("updatefound", watchInstalling);
     watchInstalling();
+    if (registration.waiting) installIfFresh();
+    // Home Screen apps resume rather than relaunch, so look again on return.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible")
+        void registration.update().catch(() => {});
+    });
   } catch {
     appUpdater.registrationFailed();
   }
