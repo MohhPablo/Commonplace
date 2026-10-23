@@ -72,6 +72,9 @@
   --glass-sheet: var(--glass-strong);
   --writing-size: 18px;
   --keyboard-inset: 0px;
+  /* One place for the device insets, so chrome and content agree. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-height: 52px;
 }
 html[data-theme="dark"] {
@@ -316,9 +319,10 @@ textarea,
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-top: calc(env(safe-area-inset-top) + var(--header-height));
-  padding-bottom: calc(env(safe-area-inset-bottom) + 96px);
-  scroll-padding-block: calc(env(safe-area-inset-top) + 72px) 110px;
+  padding-top: calc(var(--safe-top) + var(--header-height));
+  padding-bottom: calc(var(--safe-bottom) + 104px);
+  scroll-padding-block: calc(var(--safe-top) + 72px)
+    calc(var(--safe-bottom) + 112px);
 }
 .ambient {
   position: absolute;
@@ -348,30 +352,56 @@ textarea,
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: calc(env(safe-area-inset-top) + var(--header-height));
-  padding: env(safe-area-inset-top) 12px 0 16px;
+  height: calc(var(--safe-top) + var(--header-height));
+  padding: var(--safe-top) 12px 0 16px;
   pointer-events: none;
 }
 .app-header > * {
   pointer-events: auto;
 }
 /* A soft, progressive edge rather than a hard bar — the iOS 26 scroll edge. */
-.app-header-blur {
+.app-header-blur,
+.tab-bar-edge {
   position: absolute;
-  inset: 0 0 -18px;
+  inset-inline: 0;
+  pointer-events: none !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+/* The bar itself stays solid; only the last 20px feather into the content. */
+.app-header-blur {
+  inset-block: 0 -20px;
   z-index: -1;
   opacity: 0;
   background: linear-gradient(
     to bottom,
-    var(--color-paper) 0%,
-    color-mix(in srgb, var(--color-paper) 70%, transparent) 60%,
+    var(--color-paper) var(--safe-top),
+    color-mix(in srgb, var(--color-paper) 90%, transparent) calc(100% - 20px),
     transparent
   );
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  mask-image: linear-gradient(to bottom, black 55%, transparent);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black calc(100% - 20px),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent);
   transition: opacity 220ms ease;
-  pointer-events: none !important;
+}
+/* Content dissolves before it reaches the tab bar and the home indicator,
+   so the floating bar sits on calm ground instead of over busy text. */
+.tab-bar-edge {
+  bottom: 0;
+  z-index: 39;
+  height: calc(var(--safe-bottom) + 112px);
+  background: linear-gradient(
+    to top,
+    var(--color-paper) 0%,
+    color-mix(in srgb, var(--color-paper) 92%, transparent) 38%,
+    color-mix(in srgb, var(--color-paper) 55%, transparent) 70%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(to top, black 55%, transparent);
+  mask-image: linear-gradient(to top, black 55%, transparent);
 }
 .app-header-title {
   position: absolute;
@@ -456,15 +486,17 @@ textarea,
 }
 
 /* ——— Floating tab bar ——— */
+/* Sits just above the home indicator, as the iOS 26 tab bar does. */
 .tab-bar {
   position: absolute;
   z-index: 40;
   left: 50%;
-  bottom: max(10px, calc(env(safe-area-inset-bottom) - 8px));
+  bottom: max(12px, calc(var(--safe-bottom) - 13px));
   translate: -50% 0;
-  width: min(calc(100% - 28px), 440px);
-  padding: 5px;
+  width: min(calc(100% - 32px), 440px);
+  padding: 4px;
   border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
 }
 .tab-bar ul {
   display: flex;
@@ -501,7 +533,8 @@ textarea,
   border-radius: 999px;
   background: var(--fill);
 }
-html[data-keyboard="true"] .tab-bar {
+html[data-keyboard="true"] .tab-bar,
+html[data-keyboard="true"] .tab-bar-edge {
   display: none;
 }
 html[data-keyboard="true"] .app-scroll {
@@ -716,14 +749,10 @@ html[data-theme="dark"] .segment-thumb {
 .sheet-position {
   position: absolute;
   inset-inline: 8px;
-  bottom: calc(
-    var(--keyboard-inset) + max(8px, env(safe-area-inset-bottom) - 20px)
-  );
+  bottom: calc(var(--keyboard-inset) + max(8px, var(--safe-bottom) - 20px));
   display: flex;
   flex-direction: column;
-  max-height: calc(
-    100% - var(--keyboard-inset) - env(safe-area-inset-top) - 24px
-  );
+  max-height: calc(100% - var(--keyboard-inset) - var(--safe-top) - 24px);
   max-width: 560px;
   margin-inline: auto;
 }
@@ -906,15 +935,15 @@ input::-webkit-date-and-time-value {
   display: none;
 }
 .sheet-page .sheet-heading {
-  min-height: calc(56px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 12px 0;
+  min-height: calc(56px + var(--safe-top));
+  padding: var(--safe-top) 12px 0;
 }
 .sheet-page .sheet-content {
   flex: 1;
   width: 100%;
   max-width: 680px;
   margin-inline: auto;
-  padding: 8px 16px max(32px, env(safe-area-inset-bottom));
+  padding: 8px 16px max(32px, var(--safe-bottom));
 }
 html[data-keyboard="true"] .sheet-position {
   bottom: calc(var(--keyboard-inset) + 8px);
@@ -928,7 +957,8 @@ html[data-keyboard="true"] .sheet-page {
 
 /* ——— Writing ——— */
 .is-writing > .app-header,
-.is-writing > .tab-bar {
+.is-writing > .tab-bar,
+.is-writing > .tab-bar-edge {
   display: none;
 }
 .is-writing > .app-scroll {
@@ -956,8 +986,8 @@ html[data-theme="dark"] .writer {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  min-height: calc(56px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 12px 0;
+  min-height: calc(56px + var(--safe-top));
+  padding: var(--safe-top) 12px 0;
 }
 .writer-back {
   display: flex;
@@ -1104,7 +1134,7 @@ html[data-theme="dark"] .writer {
   position: absolute;
   z-index: 2;
   left: 50%;
-  bottom: max(10px, calc(env(safe-area-inset-bottom) - 8px));
+  bottom: max(10px, calc(var(--safe-bottom) - 8px));
   translate: -50% 0;
   width: min(calc(100% - 24px), 520px);
   padding: 4px 6px;
@@ -1853,7 +1883,7 @@ html[data-keyboard="true"] .editor-dock {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+  padding: var(--safe-top) 24px var(--safe-bottom);
   background:
     radial-gradient(
       90% 55% at 15% 0%,
@@ -2002,8 +2032,7 @@ html[data-keyboard="true"] .editor-dock {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: calc(env(safe-area-inset-top) + 40px) 28px
-    calc(env(safe-area-inset-bottom) + 20px);
+  padding: calc(var(--safe-top) + 40px) 28px calc(var(--safe-bottom) + 20px);
   background:
     radial-gradient(
       100% 50% at 0% 0%,

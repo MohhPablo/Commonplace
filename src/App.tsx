@@ -289,6 +289,7 @@ export function App() {
                           </Suspense>
                         </main>
                       </HeaderSlot.Provider>
+                      <div className="tab-bar-edge" aria-hidden="true" />
                       <TabBar
                         active={active}
                         onChange={(key) => {

@@ -11,8 +11,8 @@ export function AppToaster() {
       position="bottom-center"
       theme="light"
       gap={8}
-      offset={{ bottom: "calc(env(safe-area-inset-bottom) + 84px)" }}
-      mobileOffset={{ bottom: "calc(env(safe-area-inset-bottom) + 84px)" }}
+      offset={{ bottom: "calc(var(--safe-bottom) + 84px)" }}
+      mobileOffset={{ bottom: "calc(var(--safe-bottom) + 84px)" }}
       toastOptions={{
         className: "cp-toast",
         style: {
