@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Reorder, useDragControls } from "framer-motion";
+import { motion, Reorder, useDragControls } from "framer-motion";
 import { db, type Priority, type PriorityList } from "../../lib/db";
 import { Checkbox } from "../../components/Checkbox";
 import { Icon } from "../../components/Icon";
-import { Trash, DotsSixVertical } from "@phosphor-icons/react";
+import { Trash, DotsSixVertical, Star } from "@phosphor-icons/react";
+import { EmptyState } from "../../components/EmptyState";
 import { useUndo } from "../../lib/useUndo";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
 import { FAB } from "../../components/FAB";
@@ -137,92 +138,110 @@ export function Priorities() {
         }}
         label="Add to priorities"
       />
-      <p className="text-sm text-softink">
+      <p className="subtitle">
         Needs come first. Wants can wait for their turn.
       </p>
-      <div className="segmented mt-4">
-        {(["needs", "wants"] as PriorityList[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            aria-pressed={tab === k}
-            onClick={() => {
-              void action.run(async () => {
-                await orderWriter.flush();
-                setTab(k);
-              });
-            }}
-            className="capitalize"
-          >
-            {k}
-          </button>
-        ))}
+      <div className="segmented mt-4" role="group" aria-label="List">
+        {(["needs", "wants"] as PriorityList[]).map((k) => {
+          const count = (k === "needs" ? needs : wants).filter(
+            (p) => !p.fulfilled,
+          ).length;
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={tab === k}
+              onClick={() => {
+                void action.run(async () => {
+                  await orderWriter.flush();
+                  setTab(k);
+                });
+              }}
+            >
+              {tab === k && (
+                <motion.span
+                  layoutId="priority-segment"
+                  className="segment-thumb"
+                  transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                />
+              )}
+              <span className="capitalize">{k}</span>
+              {count > 0 && <span className="count-badge">{count}</span>}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="mt-4">
-        <Reorder.Group
-          axis="y"
-          values={open}
-          onReorder={(next) => {
-            // Merge with the fulfilled section, then stamp a fresh `order`
-            // onto the local array so subsequent toggles/loads stay in sync
-            // and the left-margin numbers never scramble.
-            const merged = [...next, ...fulfilled];
-            setList(merged);
-            orderWriter.schedule(merged);
-          }}
-          className="grouped-list divide-y divide-taupe"
-        >
-          {open.map((p, i) => (
-            <PriorityItem
-              key={p.id}
-              item={p}
-              index={i + 1}
-              onToggle={toggle}
-              onEdit={edit}
-              onMove={(direction) => {
-                const next = [...open];
-                const target = i + direction;
-                if (target < 0 || target >= next.length) return;
-                [next[i], next[target]] = [next[target], next[i]];
-                const merged = [...next, ...fulfilled];
-                setList(merged);
-                orderWriter.schedule(merged);
-              }}
-              onDragEnd={() => {
-                void orderWriter.flush().catch(() => {});
-              }}
-            />
-          ))}
-        </Reorder.Group>
+      <div className="mt-5">
+        {open.length > 0 && (
+          <Reorder.Group
+            axis="y"
+            values={open}
+            onReorder={(next) => {
+              // Merge with the fulfilled section, then stamp a fresh `order`
+              // onto the local array so subsequent toggles/loads stay in sync
+              // and the rank numbers never scramble.
+              const merged = [...next, ...fulfilled];
+              setList(merged);
+              orderWriter.schedule(merged);
+            }}
+            className="grouped-list row-divided"
+          >
+            {open.map((p, i) => (
+              <PriorityItem
+                key={p.id}
+                item={p}
+                index={i + 1}
+                onToggle={toggle}
+                onEdit={edit}
+                onMove={(direction) => {
+                  const next = [...open];
+                  const target = i + direction;
+                  if (target < 0 || target >= next.length) return;
+                  [next[i], next[target]] = [next[target], next[i]];
+                  const merged = [...next, ...fulfilled];
+                  setList(merged);
+                  orderWriter.schedule(merged);
+                }}
+                onDragEnd={() => {
+                  void orderWriter.flush().catch(() => {});
+                }}
+              />
+            ))}
+          </Reorder.Group>
+        )}
 
         {open.length === 0 && (
-          <p className="py-8 text-center font-sans text-sm text-softink">
-            Nothing here yet. Add what matters most.
-          </p>
+          <EmptyState
+            icon={Star}
+            title={tab === "needs" ? "No needs listed" : "No wants yet"}
+            message={
+              tab === "needs"
+                ? "Add what truly matters most. Drag to rank them."
+                : "Keep a list of things you'd love, for when there's room."
+            }
+          />
         )}
 
         {fulfilled.length > 0 && (
-          <div className="mt-6">
-            <h2 className="font-sans text-sm font-medium text-softink">
-              Fulfilled ({fulfilled.length})
-            </h2>
-            <ul className="mt-2 space-y-2">
+          <section>
+            <div className="list-section-title">
+              <h2>Fulfilled</h2>
+              <span>{fulfilled.length}</span>
+            </div>
+            <ul className="grouped-list row-divided">
               {fulfilled.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-3 rounded-xl border border-taupe bg-surface px-4 py-3 opacity-70"
-                >
+                <li key={p.id} className="flex items-center gap-1 pr-1">
                   <Checkbox
                     checked
                     onChange={() => toggle(p)}
                     label={`Mark "${p.text}" unfulfilled`}
-                    tone="sage"
+                    color="var(--color-softink)"
                   />
                   <button
                     type="button"
                     onClick={() => edit(p)}
-                    className="min-h-11 flex-1 break-words text-left text-base text-softink line-through"
+                    className="min-h-12 flex-1 break-words text-left text-[17px] text-softink line-through"
                   >
                     {p.text}
                   </button>
@@ -230,19 +249,14 @@ export function Priorities() {
                     type="button"
                     onClick={() => remove(p.id!)}
                     aria-label="Delete"
-                    className="tap-target"
+                    className="tap-target flex items-center justify-center"
                   >
-                    <Icon
-                      as={Trash}
-                      size={18}
-                      color="var(--color-rust)"
-                      weight="light"
-                    />
+                    <Icon as={Trash} size={19} color="var(--color-rust)" />
                   </button>
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         )}
       </div>
 
@@ -280,7 +294,9 @@ export function Priorities() {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) void add();
           }}
-          placeholder={`Add to ${tab}`}
+          placeholder={
+            tab === "needs" ? "Something you need" : "Something you want"
+          }
           className="form-field"
         />
         {editing && (
@@ -288,8 +304,9 @@ export function Priorities() {
             type="button"
             disabled={action.busy}
             onClick={() => remove(editing.id!)}
-            className="mt-2 min-h-11 w-full text-sm text-rust"
+            className="destructive-row press"
           >
+            <Icon as={Trash} size={18} color="currentColor" />
             Delete priority
           </button>
         )}
@@ -331,21 +348,28 @@ function PriorityItem({
       dragControls={controls}
       onDragEnd={onDragEnd}
       layout
-      className="flex items-center gap-2 bg-surface px-3 py-2"
+      className="flex items-center gap-1 bg-surface pr-1"
+      whileDrag={{
+        scale: 1.03,
+        boxShadow: "0 12px 30px rgb(0 0 0 / 16%)",
+        zIndex: 2,
+      }}
     >
-      <span className="w-6 text-center text-sm font-medium text-softink">
+      <span
+        className={`rank ${index === 1 ? "is-top" : ""}`}
+        aria-hidden="true"
+      >
         {index}
       </span>
       <Checkbox
         checked={item.fulfilled}
         onChange={() => onToggle(item)}
         label={`Mark "${item.text}" fulfilled`}
-        tone="sage"
       />
       <button
         type="button"
         onClick={() => onEdit(item)}
-        className="min-h-11 min-w-0 flex-1 break-words text-left text-base text-ink"
+        className="min-h-12 min-w-0 flex-1 break-words py-2 text-left text-[17px] text-ink"
       >
         {item.text}
       </button>
@@ -363,9 +387,9 @@ function PriorityItem({
       >
         <Icon
           as={DotsSixVertical}
-          size={20}
+          size={22}
           color="var(--color-softink)"
-          weight="light"
+          weight="bold"
         />
       </button>
     </Reorder.Item>

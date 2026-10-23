@@ -37,11 +37,12 @@ export async function setReminderTime(time: ReminderTime): Promise<void> {
   await setSetting<ReminderTime>("reminderTime", time);
 }
 
-// Theme: paper (default) | dark | sepia. Applied via <html data-theme>.
-export type Theme = "paper" | "dark" | "sepia";
+// Theme: system (default) | paper | dark | sepia. Applied via <html data-theme>.
+export type Theme = "system" | "paper" | "dark" | "sepia";
+type ResolvedTheme = Exclude<Theme, "system">;
 
 export async function getTheme(): Promise<Theme> {
-  return getSetting<Theme>("theme", "paper");
+  return getSetting<Theme>("theme", "system");
 }
 
 export async function setTheme(theme: Theme): Promise<void> {
@@ -49,16 +50,36 @@ export async function setTheme(theme: Theme): Promise<void> {
   applyTheme(theme);
 }
 
+const THEME_COLORS: Record<ResolvedTheme, string> = {
+  paper: "#F3F1EE",
+  sepia: "#F1E9DB",
+  dark: "#000000",
+};
+let followSystem: (() => void) | null = null;
+
 export function applyTheme(theme: Theme): void {
-  document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute(
-    "content",
-    {
-      paper: "#F2F2F7",
-      sepia: "#F1E4CF",
-      dark: "#000000",
-    }[theme],
-  );
+  // index.html reads this copy before first paint so the boot splash matches.
+  try {
+    localStorage.setItem("commonplace:theme", theme);
+  } catch {
+    // Private browsing can refuse storage; the theme still applies now.
+  }
+  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+  if (followSystem) media?.removeEventListener?.("change", followSystem);
+  followSystem = null;
+  const paint = () => {
+    const resolved: ResolvedTheme =
+      theme === "system" ? (media?.matches ? "dark" : "paper") : theme;
+    document.documentElement.dataset.theme = resolved;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", THEME_COLORS[resolved]);
+  };
+  paint();
+  if (theme === "system" && media) {
+    followSystem = paint;
+    media.addEventListener?.("change", paint);
+  }
 }
 
 // Onboarding: whether the first-run tour has been shown.

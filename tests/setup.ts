@@ -21,6 +21,10 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 Object.defineProperty(window, "scrollTo", { value: () => {} });
+// jsdom lacks pointer capture, which Sonner's swipe-to-dismiss toasts use.
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};
+Element.prototype.hasPointerCapture ??= () => false;
 
 afterEach(async () => {
   cleanup();

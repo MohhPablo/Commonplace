@@ -16,7 +16,9 @@ Working name: **commonplace**. npm package name: `commonplace` (see package.json
 - **Tiptap 3** (ProseMirror) — journal rich-text editor.
 - **Dexie 4** — IndexedDB wrapper (the ONLY data store).
 - **vite-plugin-pwa** (Workbox) — manifest + service worker (prompt-based updates, explicit activation from Settings, `clientsClaim`).
-- **@phosphor-icons/react** — iconography (duotone/light weights only).
+- **@phosphor-icons/react** — iconography (regular weight, fill when active — reads like SF Symbols).
+- **sonner** — undo toasts (glass pill, swipe to dismiss), bridged through `UndoSnackbar`.
+- **@number-flow/react** — rolling digits for stats via `AnimatedNumber` (plain text where WAAPI is missing).
 - **Web Notifications API** — foreground-only reminders (no backend, no scheduled push).
 
 ## Scripts
@@ -39,7 +41,8 @@ src/App.tsx  → top-level shell:
         journal | tasks | priorities | habits | review   (review added later)
    - Five-tab <TabBar/> anchored in the app frame; <Splash/>; <Settings/> sheet from the header gear
    - <LockScreen/> (when password set) ; <Onboarding/> (first run, once)
-src/components/  TabBar, Icon, Checkbox, EmptyState, Splash, LockScreen, Settings, Onboarding
+src/components/  TabBar, Icon, Checkbox, EmptyState, Splash, LockScreen, Settings, Onboarding,
+                 FAB (+ HeaderSlot), ProgressRing, AnimatedNumber, UndoSnackbar (+ AppToaster)
 src/features/    journal/, tasks/, priorities/, habits/, review/
 src/lib/         db.ts, habits.ts, date.ts, badge.ts, notifications.ts, settings.ts,
                  auth.ts, haptics.ts, backup.ts
@@ -81,14 +84,15 @@ Tables (all in `src/lib/db.ts`). **Migrations are cumulative — never edit old 
 
 ## Design system (current user direction)
 
-The latest user request supersedes the original paper-only direction: use an iOS-inspired glass interface with anchored chrome and a better writing experience.
+The latest direction: an Apple-made feel that is still distinctly Commonplace (iOS 26-style glass chrome, large titles, warm brand).
 
-- Shared tokens live in `src/index.css`; light, dark, and sepia each define translucent materials, borders, and highlights. Keep terracotta as the accent. Use system typography throughout; Fraunces is available only as an optional book-font writing view.
-- UI typography uses the Apple system font on Apple devices, with system-ui as fallback. Writing defaults to the system font with an optional book-font view.
-- `.app-frame` fills the stable layout viewport without offsets or scaling. `.app-session` places a compact header and attached tab bar around independently scrolling `.app-scroll`. `lib/viewport.ts` measures a keyboard inset for foreground panes only. The document itself must not scroll.
-- Writing mode hides the main header and tab bar. The writer has its own header, scrolling text pane, and bottom formatting dock above the keyboard.
-- All sheets share `BottomSheet`: downward header/grabber dragging, top-of-content pull dismissal, focus containment, Escape, close button, and background inertness. Never hijack text input or ordinary upward scrolling.
-- `.glass-toolbar` and `.glass-sheet` use restrained material tokens; `.native-card` and settings groups are solid surfaces. Reduced-transparency preferences use opaque chrome.
+- Tokens live in `src/index.css`. Light (`paper`, warm #F3F1EE), dark and sepia define surfaces, Apple system tints (`--tint-blue`, `--tint-green`…), `--fill`, and glass materials (`--glass-bg`, `--glass-rim`, `--glass-shadow`). `Theme` also has `system`, which follows `prefers-color-scheme`; `applyTheme` mirrors the choice into `localStorage["commonplace:theme"]` so `index.html` can paint the right boot splash before JS.
+- Section tint: `data-section` on `<html>` and `.app-session` sets `--tint`/`--tint-2` per tab. Components use `var(--tint)` rather than a fixed accent. Settings (`.sheet-page`) stays terracotta.
+- Typography: system font (SF Pro) with Inter Variable fallback; `--font-rounded` (SF Rounded) for numbers; `--font-display` (`ui-serif` → New York) for prompts and the writer's date heading.
+- Shell: `.app-scroll` fills the session; `.app-header` overlays it with a progressive blur that appears after scrolling, plus a compact title. Screen actions portal into the header through `HeaderSlot`/`HeaderAction` (`FAB` uses it; standalone renders fall back inline). `.tab-bar` is a floating glass capsule with a `layoutId` pill.
+- Cards use `--r` radii and become true squircles where `corner-shape` is supported. `.icon-tile` is the Settings-style coloured square.
+- Sheets float inset from the screen edges (iOS 26) with a circular close button and a tinted pill action. The writer has a glass back pill, a Done pill and a floating formatting capsule.
+- Icon & launch art: `scripts/gen-icons.mjs` renders the SVG master into PNG icons and 22 `apple-touch-startup-image`s (11 iPhone sizes × light/dark), written between markers in `index.html`. Launch images are excluded from the Workbox precache.
 - `lib/updates.ts` registers the worker directly and saves drafts before explicit activation; it waits for controllerchange before reloading, including updates activated from another tab. Keep PWA updates prompt-based so ordinary downloads do not reload an active draft.
 
 ## iOS-specific constraints (do NOT violate)
@@ -106,10 +110,10 @@ From `pwa-ios-technical-reference.md` — these are hard limits, not preferences
 | Tab        | Component                                      | Behavior                                                                                                                                                                  |
 | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Journal    | `features/journal/Journal.tsx` + `Editor.tsx`  | List↔Write; Tiptap; debounced autosave; search; keyboard-aware writing dock with expandable formatting; lazy-loaded editor.                                              |
-| Tasks      | `features/tasks/Tasks.tsx`                     | Add/edit/due/complete; safe swipe cancellation; deletion from edit sheet; Undo; collapsed Done.                                                                           |
+| Tasks      | `features/tasks/Tasks.tsx`                     | Smart lists (Today/Scheduled/All/Completed); Overdue/Today/Upcoming/Anytime sections; swipe or sheet delete; Undo.                                                        |
 | Priorities | `features/priorities/Priorities.tsx`           | Needs/Wants segmented; Framer `Reorder`; fulfilled section.                                                                                                               |
-| Habits     | `features/habits/Habits.tsx` + `MonthGrid.tsx` | Add/archive with Undo; separate completion and calendar buttons; one-tap today; streak; calendar expands inline per habit (tap card); foreground reminders + time picker. |
-| Review     | `features/review/Review.tsx`                   | Daily reflection prompt (autosave), 5-point mood picker + 7-day strip, insights with explicit current-streak and seven-day labels.                                        |
+| Habits     | `features/habits/Habits.tsx` + `MonthGrid.tsx` | Daily progress ring; one-tap today; streak pill; 7-day strip; tap name to expand month calendar + Archive (with Undo).                                                     |
+| Review     | `features/review/Review.tsx`                   | Activity rings (habits, tasks, reflect), reflection prompt (autosave), mood orbs, 7-day mood bars, insights.                                                               |
 
 **Cross-cutting:** Splash (fade), password LockScreen (PBKDF2), Settings page (password/theme/notifications/backup/app updates), Onboarding (first-run, once), haptics on toggle, dark/sepia themes, vendor chunk splitting.
 

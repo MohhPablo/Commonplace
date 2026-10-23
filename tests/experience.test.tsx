@@ -297,7 +297,11 @@ it("keeps habit completion separate from calendar expansion and preserves histor
       .getAttribute("aria-expanded"),
   ).toBe("false");
   await waitFor(async () => expect(await db.habitLogs.count()).toBe(1));
-  await user.click(screen.getByRole("button", { name: "Archive habit" }));
+  // Archiving lives with the habit's history, inside the expanded card.
+  await user.click(screen.getByRole("button", { name: "Read", exact: true }));
+  await user.click(
+    await screen.findByRole("button", { name: "Archive habit" }),
+  );
   await screen.findByText("Habit archived");
   expect((await db.habits.get(id))?.archived).toBe(true);
   expect(await db.habitLogs.count()).toBe(1);

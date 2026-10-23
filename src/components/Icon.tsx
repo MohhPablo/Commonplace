@@ -7,9 +7,8 @@ import type { ComponentType } from "react";
 
 /**
  * App-wide icon wrapper around Phosphor.
- * - `duotone` weight renders the secondary layer as a low-opacity tint of
- *   `color`, giving the warm-terracotta-duotone look called for in spec §3.
- * - `active` switches light -> duotone and ink -> terracotta.
+ * - Regular weight reads like SF Symbols; `active` switches to the filled
+ *   glyph and the current section tint, as iOS tab bars do.
  */
 export function Icon({
   as: Glyph,
@@ -22,14 +21,15 @@ export function Icon({
   as: ComponentType<PhosphorProps>;
   active?: boolean;
 }) {
-  const resolvedWeight: IconWeight = weight ?? (active ? "duotone" : "light");
+  const resolvedWeight: IconWeight = weight ?? (active ? "fill" : "regular");
   const resolvedColor =
-    color ?? (active ? "var(--color-terracotta)" : "var(--color-softink)");
+    color ?? (active ? "var(--tint)" : "var(--color-softink)");
   return (
     <Glyph
       size={size}
       weight={resolvedWeight}
       color={resolvedColor}
+      aria-hidden="true"
       {...rest}
     />
   );

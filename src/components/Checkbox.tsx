@@ -1,6 +1,4 @@
 import { motion } from "framer-motion";
-import { Icon } from "./Icon";
-import { Check } from "@phosphor-icons/react";
 import { tap } from "../lib/haptics";
 
 interface CheckboxProps {
@@ -9,26 +7,23 @@ interface CheckboxProps {
   onChange: (next: boolean) => void;
   /** Accessible label for screen readers. */
   label?: string;
-  tone?: "terracotta" | "sage";
+  /** Fill colour; defaults to the current section tint. */
+  color?: string;
   size?: number;
 }
 
 /**
- * Custom checkbox (spec §3: never use default browser input styling).
- * A drawn checkmark springs in via SVG path animation + a small scale bounce,
- * satisfying the "checkmark that draws itself" requirement (§3 motion notes).
- * No Vibration API (unsupported on iOS — ref §1) and no haptics.
+ * Reminders-style round checkbox. The ring fills with the tint and the
+ * checkmark draws itself; the hit area stays 44pt regardless of size.
  */
 export function Checkbox({
   checked,
   disabled = false,
   onChange,
   label,
-  tone = "terracotta",
+  color = "var(--tint)",
   size = 24,
 }: CheckboxProps) {
-  const color =
-    tone === "sage" ? "var(--color-sage)" : "var(--color-terracotta)";
   return (
     <button
       type="button"
@@ -40,30 +35,39 @@ export function Checkbox({
         tap();
         onChange(!checked);
       }}
-      className="interactive flex items-center justify-center rounded-full"
+      className="flex shrink-0 items-center justify-center rounded-full"
       style={{ width: Math.max(44, size), height: Math.max(44, size) }}
     >
       <motion.span
-        className="flex items-center justify-center rounded-full border-2"
+        className="flex items-center justify-center rounded-full"
+        initial={false}
         animate={{
-          borderColor: checked ? color : "var(--color-taupe)",
-          backgroundColor: checked ? color : "rgba(0,0,0,0)",
+          boxShadow: checked
+            ? `inset 0 0 0 ${size}px ${color}`
+            : "inset 0 0 0 1.75px var(--color-taupe)",
+          scale: checked ? [1, 1.15, 1] : 1,
         }}
-        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        transition={{ duration: 0.32, ease: [0.3, 0.7, 0.4, 1] }}
         style={{ width: size, height: size }}
       >
-        <motion.span
-          initial={false}
-          animate={{ scale: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
-          transition={{ type: "spring", stiffness: 600, damping: 22 }}
+        <svg
+          viewBox="0 0 24 24"
+          width={size * 0.62}
+          height={size * 0.62}
+          aria-hidden="true"
         >
-          <Icon
-            as={Check}
-            weight="bold"
-            size={size * 0.62}
-            color="var(--color-onaccent)"
+          <motion.path
+            d="M5 12.5l4.5 4.5L19 7.5"
+            fill="none"
+            stroke="#fff"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={false}
+            animate={{ pathLength: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
+            transition={{ duration: 0.28, delay: checked ? 0.08 : 0 }}
           />
-        </motion.span>
+        </svg>
       </motion.span>
     </button>
   );

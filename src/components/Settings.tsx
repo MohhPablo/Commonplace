@@ -2,11 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import {
   Bell,
+  BellRinging,
   DownloadSimple,
   UploadSimple,
   Lock,
-  Warning,
+  ShieldCheck,
+  TextAa,
+  Check,
+  CaretUpDown,
+  BellSlash,
+  type IconProps,
 } from "@phosphor-icons/react";
+import type { ComponentType, CSSProperties } from "react";
 import {
   isPasswordSet,
   setPassword,
@@ -73,7 +80,7 @@ export function Settings({
   const [notificationMsg, setNotificationMsg] = useState("");
   const [importMsg, setImportMsg] = useState("");
   const [reminderTime, setReminderTimeState] = useState<ReminderTime>(null);
-  const [theme, setThemeState] = useState<Theme>("paper");
+  const [theme, setThemeState] = useState<Theme>("system");
   const [writingSize, setWritingSizeState] = useState<WritingSize>("default");
   const fileRef = useRef<HTMLInputElement>(null);
   // Bumped to remount PinPad and clear its digits between steps / wrong pins.
@@ -298,70 +305,114 @@ export function Settings({
       }}
     >
       <InlineError>{error}</InlineError>
+      <section className="settings-group settings-hero">
+        <img src="/icons/icon.svg" alt="" />
+        <div className="min-w-0">
+          <h3 className="text-[20px] font-bold tracking-tight">
+            Commonplace<span className="wordmark-dot">.</span>
+          </h3>
+          <p className="text-[15px] leading-snug text-softink">
+            Journal, tasks and habits. Kept on this device.
+          </p>
+        </div>
+      </section>
+
+      <h3 className="settings-label">Appearance</h3>
       <section className="settings-group">
-        <h3 className="section-title">Appearance</h3>
+        <div className="theme-options" role="group" aria-label="Theme">
+          {THEMES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={theme === option.value}
+              onClick={() => {
+                void onThemeChange(option.value);
+              }}
+              className="theme-option"
+            >
+              <span
+                className="theme-preview"
+                style={{ background: option.preview }}
+              >
+                <i
+                  style={{ top: "22%", background: option.ink, opacity: 0.85 }}
+                />
+                <i
+                  style={{
+                    top: "36%",
+                    right: "40%",
+                    background: option.ink,
+                    opacity: 0.35,
+                  }}
+                />
+                <i style={{ top: "50%", background: option.card }} />
+                <i style={{ top: "62%", background: option.card }} />
+              </span>
+              {option.label}
+              <span className="theme-check" aria-hidden="true">
+                {theme === option.value && (
+                  <Icon
+                    as={Check}
+                    size={12}
+                    color="currentColor"
+                    weight="bold"
+                  />
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
         <label className="settings-row">
-          <span>Theme</span>
-          <select
-            aria-label="Theme"
-            value={theme}
-            onChange={(e) => {
-              void onThemeChange(e.target.value as Theme);
-            }}
-            className="bg-transparent text-right text-softink"
-          >
-            <option value="paper">Light</option>
-            <option value="sepia">Sepia</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
-        <label className="settings-row border-t border-taupe">
-          <span>Writing size</span>
-          <select
-            aria-label="Writing size"
-            value={writingSize}
-            onChange={(e) => {
-              const size = e.target.value as WritingSize;
-              void setWritingSize(size)
-                .then(() => setWritingSizeState(size))
-                .catch(() => setError("Could not save writing size."));
-            }}
-            className="bg-transparent text-right text-softink"
-          >
-            <option value="small">Small</option>
-            <option value="default">Default</option>
-            <option value="large">Large</option>
-          </select>
+          <Tile icon={TextAa} color="var(--tint-orange)" />
+          <span className="row-label">Writing size</span>
+          <span className="settings-value">
+            <select
+              aria-label="Writing size"
+              value={writingSize}
+              onChange={(e) => {
+                const size = e.target.value as WritingSize;
+                void setWritingSize(size)
+                  .then(() => setWritingSizeState(size))
+                  .catch(() => setError("Could not save writing size."));
+              }}
+              className="settings-select"
+            >
+              <option value="small">Small</option>
+              <option value="default">Default</option>
+              <option value="large">Large</option>
+            </select>
+            <Icon as={CaretUpDown} size={14} weight="bold" />
+          </span>
         </label>
       </section>
+
+      <h3 className="settings-label">Privacy</h3>
       <section className="settings-group">
-        <h3 className="section-title flex items-center gap-2">
-          <Icon as={Lock} size={17} /> Privacy
-        </h3>
         {pinMode === "idle" ? (
-          <>
-            <div className="settings-row">
-              <span>App passcode</span>
-              <span className="text-sm text-softink">
-                {hasPassword ? "On" : "Off"}
+          <div className="settings-row">
+            <Tile icon={Lock} color="var(--tint-blue)" />
+            <span className="row-label">
+              Passcode
+              <span className="block text-[13px] text-softink">
+                {hasPassword ? "On · locks when you leave" : "Off"}
               </span>
-            </div>
+            </span>
             {!hasPassword ? (
               <button
                 type="button"
                 disabled={pwBusy}
                 onClick={startSet}
-                className="settings-link"
+                className="settings-link press"
               >
                 Set
               </button>
             ) : (
-              <div className="flex gap-6">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   disabled={pwBusy}
                   onClick={startChange}
-                  className="settings-link"
+                  className="settings-link press"
                 >
                   Change
                 </button>
@@ -369,19 +420,20 @@ export function Settings({
                   type="button"
                   disabled={pwBusy}
                   onClick={startRemove}
-                  className="settings-link text-rust"
+                  className="settings-link press"
+                  style={{ "--tint": "var(--color-rust)" } as CSSProperties}
                 >
                   Remove
                 </button>
               </div>
             )}
-          </>
+          </div>
         ) : (
-          <>
-            <p className="mt-3 text-center text-sm text-softink">
+          <div className="settings-block">
+            <p className="mt-2 text-center text-[17px] font-semibold">
               {pinPrompt[pinMode]}
             </p>
-            <div className="mt-4">
+            <div className="mt-5">
               <PinPad
                 key={pinKey}
                 length={4}
@@ -389,43 +441,41 @@ export function Settings({
                 disabled={pwBusy}
               />
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setPinMode("idle");
-                setPwMsg("");
-                resetPin();
-              }}
-              className="settings-link w-full"
-            >
-              Cancel
-            </button>
-          </>
-        )}
-        {pwMsg && (
-          <p role="status" className="mt-2 text-sm text-softink">
-            {pwMsg}
-          </p>
+            <div className="mt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setPinMode("idle");
+                  setPwMsg("");
+                  resetPin();
+                }}
+                className="link-button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
       </section>
+      {pwMsg && (
+        <p role="status" className="settings-note">
+          {pwMsg}
+        </p>
+      )}
+
+      <h3 className="settings-label">Reminders</h3>
       <section className="settings-group">
-        <h3 className="section-title flex items-center gap-2">
-          <Icon as={Bell} size={17} /> Reminders
-        </h3>
         <label className="settings-row">
-          <span>Daily reminder</span>
+          <Tile icon={Bell} color="var(--tint-red)" />
+          <span className="row-label">Daily reminder</span>
           <input
             aria-label="Daily reminder"
             type="time"
             value={reminderTime ?? ""}
             onChange={onTimeChange}
-            className="!w-32 rounded-lg bg-paper px-2 py-2"
+            className="time-field"
           />
         </label>
-        <p className="mt-2 text-[13px] leading-relaxed text-softink">
-          Reminders appear while Commonplace is open. They cannot wake a closed
-          app.
-        </p>
         <button
           type="button"
           onClick={() => {
@@ -433,48 +483,50 @@ export function Settings({
               setError("Could not send a test reminder."),
             );
           }}
-          className="settings-link mt-2"
+          className="settings-row"
         >
-          Send test notification
+          <Tile icon={BellRinging} color="var(--tint-orange)" />
+          <span className="row-label">Send test notification</span>
         </button>
         {reminderTime && (
           <button
             type="button"
-            className="settings-link block"
+            className="settings-row text-rust"
             onClick={() => {
               void saveReminderTime(null)
                 .then(() => setReminderTimeState(null))
                 .catch(() => setError("Could not turn off reminders."));
             }}
           >
-            Turn off reminder
+            <Tile icon={BellSlash} color="var(--tint-gray)" />
+            <span className="row-label">Turn off reminder</span>
           </button>
         )}
-        {notificationMsg && (
-          <p role="status" className="mt-2 text-sm text-softink">
-            {notificationMsg}
-          </p>
-        )}
       </section>
+      <p className="settings-note">
+        {notificationMsg ||
+          "Reminders appear while Commonplace is open. They cannot wake a closed app."}
+      </p>
+
+      <h3 className="settings-label">Backup</h3>
       <section className="settings-group">
-        <h3 className="section-title">Backup</h3>
         <button
           type="button"
           disabled={backupBusy}
           onClick={doExport}
-          className="settings-row text-terracotta"
+          className="settings-row"
         >
-          <span>Export backup</span>
-          <Icon as={DownloadSimple} size={20} color="var(--color-terracotta)" />
+          <Tile icon={DownloadSimple} color="var(--tint-green)" />
+          <span className="row-label">Export backup</span>
         </button>
         <button
           type="button"
           disabled={backupBusy}
           onClick={() => fileRef.current?.click()}
-          className="settings-row border-t border-taupe text-terracotta"
+          className="settings-row"
         >
-          <span>Import backup</span>
-          <Icon as={UploadSimple} size={20} color="var(--color-terracotta)" />
+          <Tile icon={UploadSimple} color="var(--tint-teal)" />
+          <span className="row-label">Import backup</span>
         </button>
         <input
           ref={fileRef}
@@ -485,9 +537,9 @@ export function Settings({
           onChange={onFile}
         />
         {pendingBackup && (
-          <div className="mt-4 rounded-xl border border-rust p-4">
-            <h3 className="text-base font-semibold">Replace current data?</h3>
-            <p className="mt-2 text-sm text-softink">
+          <div className="settings-block">
+            <h3 className="text-[17px] font-semibold">Replace current data?</h3>
+            <p className="mt-2 text-[15px] leading-snug text-softink">
               This backup has {pendingBackup.entries.length} journal entries,{" "}
               {pendingBackup.tasks.length} tasks,{" "}
               {pendingBackup.priorities.length} priorities,{" "}
@@ -496,46 +548,99 @@ export function Settings({
               Importing replaces all current content. Your passcode and settings
               stay the same.
             </p>
-            <button
-              type="button"
-              disabled={backupBusy}
-              onClick={doExport}
-              className="settings-link mt-2"
-            >
-              Export current data first
-            </button>
-            <div className="mt-2 flex flex-wrap gap-3">
+            <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 disabled={backupBusy}
                 onClick={restoreBackup}
-                className="native-primary !bg-rust"
+                className="native-primary press !min-h-11 !py-2"
+                style={{ "--tint": "var(--color-rust)" } as CSSProperties}
               >
                 {backupBusy ? "Restoring…" : "Replace data"}
               </button>
               <button
                 type="button"
                 disabled={backupBusy}
+                onClick={doExport}
+                className="settings-link press !min-h-11"
+              >
+                Export current data first
+              </button>
+              <button
+                type="button"
+                disabled={backupBusy}
                 onClick={() => setPendingBackup(null)}
-                className="settings-link"
+                className="link-button"
               >
                 Cancel import
               </button>
             </div>
           </div>
         )}
-        {importMsg && (
-          <p role="status" className="mt-2 text-sm text-softink">
-            {importMsg}
-          </p>
-        )}
       </section>
+      {importMsg && (
+        <p role="status" className="settings-note">
+          {importMsg}
+        </p>
+      )}
       <AppUpdate />
-      <p className="mt-6 flex items-start gap-2 text-[13px] leading-relaxed text-softink">
-        <Icon as={Warning} size={16} className="mt-0.5 shrink-0" />
+      <p className="mx-4 mt-8 flex items-start gap-2 text-[13px] leading-relaxed text-softink">
+        <Icon as={ShieldCheck} size={16} className="mt-0.5 shrink-0" />
         Stored on this device. The passcode hides the app; it does not encrypt
         your data or exported backups.
       </p>
     </BottomSheet>
+  );
+}
+
+const THEMES: {
+  value: Theme;
+  label: string;
+  preview: string;
+  ink: string;
+  card: string;
+}[] = [
+  {
+    value: "system",
+    label: "System",
+    preview: "linear-gradient(115deg, #f3f1ee 50%, #000 50%)",
+    ink: "#8e8e93",
+    card: "rgb(142 142 147 / 45%)",
+  },
+  {
+    value: "paper",
+    label: "Light",
+    preview: "#f3f1ee",
+    ink: "#1d1d1f",
+    card: "#fff",
+  },
+  {
+    value: "sepia",
+    label: "Sepia",
+    preview: "#f1e9db",
+    ink: "#3c332b",
+    card: "#fff9ef",
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    preview: "#000",
+    ink: "#f5f5f7",
+    card: "#2c2c2e",
+  },
+];
+
+/** A Settings-style rounded square icon. */
+function Tile({
+  icon,
+  color,
+}: {
+  icon: ComponentType<IconProps>;
+  color: string;
+}) {
+  return (
+    <span className="icon-tile" style={{ "--tile": color } as CSSProperties}>
+      <Icon as={icon} size={18} color="#fff" weight="fill" />
+    </span>
   );
 }

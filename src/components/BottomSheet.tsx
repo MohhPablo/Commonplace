@@ -318,7 +318,7 @@ export function BottomSheet({
                 </button>
               )}
               <div
-                className="sheet-heading"
+                className={`sheet-heading ${!page && !action ? "no-leading" : ""}`}
                 onPointerDown={startHeader}
                 onPointerMove={moveHeader}
                 onPointerUp={endHeader}
@@ -328,16 +328,16 @@ export function BottomSheet({
                 {page && (
                   <button
                     type="button"
-                    className="text-action !px-0"
+                    className="glass-circle press"
                     onClick={() => close.current()}
                     aria-label="Close Settings"
                   >
                     <Icon
                       as={CaretLeft}
-                      size={21}
-                      color="var(--color-terracotta)"
-                    />{" "}
-                    Back
+                      size={20}
+                      color="var(--color-ink)"
+                      weight="bold"
+                    />
                   </button>
                 )}
                 {!page && action && (
@@ -345,27 +345,42 @@ export function BottomSheet({
                     type="button"
                     onClick={() => close.current()}
                     aria-label="Close"
-                    className="text-action !px-0 !font-normal"
+                    className="glass-circle press"
                   >
-                    Cancel
+                    <Icon
+                      as={X}
+                      size={18}
+                      color="var(--color-ink)"
+                      weight="bold"
+                    />
                   </button>
                 )}
-                <h2
-                  id={titleId}
-                  className={page || action ? "text-center" : ""}
-                >
-                  {title}
-                </h2>
-                {action ?? (
-                  <button
-                    type="button"
-                    onClick={() => close.current()}
-                    aria-label="Close"
-                    className="sheet-close"
-                  >
-                    {page ? "Done" : <Icon as={X} size={20} />}
-                  </button>
-                )}
+                <h2 id={titleId}>{title}</h2>
+                {action ??
+                  (page ? (
+                    <button
+                      type="button"
+                      onClick={() => close.current()}
+                      aria-label="Close"
+                      className="sheet-action press"
+                    >
+                      Done
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => close.current()}
+                      aria-label="Close"
+                      className="sheet-close press"
+                    >
+                      <Icon
+                        as={X}
+                        size={18}
+                        color="var(--color-ink)"
+                        weight="bold"
+                      />
+                    </button>
+                  ))}
               </div>
               <div ref={content} className="sheet-content">
                 {children}

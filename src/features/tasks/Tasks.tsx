@@ -5,12 +5,17 @@ import { Checkbox } from "../../components/Checkbox";
 import { EmptyState } from "../../components/EmptyState";
 import { Icon } from "../../components/Icon";
 import {
-  CheckSquareOffset,
+  ListChecks,
   Trash,
   DotsThree,
-  CaretUp,
   CaretDown,
+  CalendarBlank,
+  CalendarDots,
+  Tray,
+  Check,
+  type IconProps,
 } from "@phosphor-icons/react";
+import type { ComponentType } from "react";
 import { formatShort, fromDayKey } from "../../lib/date";
 import { useToday } from "../../lib/useToday";
 import { useSwipeToDelete } from "../../lib/useSwipeToDelete";
@@ -21,8 +26,37 @@ import { InlineError } from "../../components/InlineError";
 import { UndoSnackbar } from "../../components/UndoSnackbar";
 import { FAB } from "../../components/FAB";
 import { BottomSheet } from "../../components/BottomSheet";
+import { AnimatedNumber } from "../../components/AnimatedNumber";
 
 const loadTasks = () => db.tasks.orderBy("createdAt").toArray();
+
+type Filter = "today" | "scheduled" | "all" | "completed";
+const SMART_LISTS: {
+  key: Filter;
+  label: string;
+  icon: ComponentType<IconProps>;
+  tile: string;
+}[] = [
+  {
+    key: "today",
+    label: "Today",
+    icon: CalendarBlank,
+    tile: "var(--tint-blue)",
+  },
+  {
+    key: "scheduled",
+    label: "Scheduled",
+    icon: CalendarDots,
+    tile: "var(--tint-red)",
+  },
+  { key: "all", label: "All", icon: Tray, tile: "var(--all-tile)" },
+  {
+    key: "completed",
+    label: "Completed",
+    icon: Check,
+    tile: "var(--tint-gray)",
+  },
+];
 
 export function Tasks() {
   const { value: tasks, error: loadError, loading } = useQuery(loadTasks, []);
@@ -30,6 +64,7 @@ export function Tasks() {
   const [dueDate, setDueDate] = useState("");
   const [editing, setEditing] = useState<Task | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
   const [sheetOpen, setSheetOpen] = useState(false);
   const { pending, arm, undo, dismiss } = useUndo(() => {});
   const action = useAction();
@@ -99,7 +134,68 @@ export function Tasks() {
         (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") ||
         a.createdAt - b.createdAt,
     );
-  const done = tasks.filter((task) => task.completed);
+  const done = tasks
+    .filter((task) => task.completed)
+    .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
+  const dueBy = (task: Task) => task.dueDate !== null && task.dueDate <= today;
+  const counts: Record<Filter, number> = {
+    today: open.filter(dueBy).length,
+    scheduled: open.filter((task) => task.dueDate).length,
+    all: open.length,
+    completed: done.length,
+  };
+  const sections: { title: string; color?: string; tasks: Task[] }[] =
+    filter === "completed"
+      ? [{ title: "Completed", tasks: done }]
+      : filter === "today"
+        ? [
+            {
+              title: "Overdue",
+              color: "var(--color-rust)",
+              tasks: open.filter((t) => t.dueDate! < today && dueBy(t)),
+            },
+            {
+              title: "Today",
+              color: "var(--tint)",
+              tasks: open.filter((t) => t.dueDate === today),
+            },
+          ]
+        : [
+            {
+              title: "Overdue",
+              color: "var(--color-rust)",
+              tasks: open.filter(
+                (t) => t.dueDate !== null && t.dueDate < today,
+              ),
+            },
+            {
+              title: "Today",
+              color: "var(--tint)",
+              tasks: open.filter((t) => t.dueDate === today),
+            },
+            {
+              title: "Upcoming",
+              tasks: open.filter(
+                (t) => t.dueDate !== null && t.dueDate > today,
+              ),
+            },
+            ...(filter === "all"
+              ? [
+                  {
+                    title: open.some((t) => t.dueDate) ? "Anytime" : "To do",
+                    tasks: open.filter((t) => !t.dueDate),
+                  },
+                ]
+              : []),
+          ];
+  const visible = sections.filter((section) => section.tasks.length);
+  const rowProps = {
+    today,
+    disabled: action.busy,
+    onToggle: toggle,
+    onEdit: openEditor,
+    onDelete: remove,
+  };
   return (
     <div className="screen-pad">
       <FAB onPress={() => openEditor(null)} label="Add a task" />
@@ -112,55 +208,98 @@ export function Tasks() {
       </InlineError>
       {!loading && !loadError && !tasks.length ? (
         <EmptyState
-          icon={CheckSquareOffset}
+          icon={ListChecks}
           title="Make room for today"
           message="Add what needs doing. Small tasks count too."
+          action={
+            <button
+              type="button"
+              onClick={() => openEditor(null)}
+              className="native-primary press"
+            >
+              Add your first task
+            </button>
+          }
         />
       ) : (
         <>
-          {open.length > 0 && (
-            <p className="mb-3 text-xs font-medium uppercase tracking-widest text-softink">
-              {open.length} to do
+          <div className="smart-lists">
+            {SMART_LISTS.map((list) => (
+              <button
+                key={list.key}
+                type="button"
+                aria-pressed={filter === list.key}
+                onClick={() => {
+                  setFilter(list.key);
+                  setShowDone(false);
+                }}
+                className="smart-list press"
+                style={{ "--tile": list.tile } as React.CSSProperties}
+              >
+                <span className="smart-icon">
+                  <Icon
+                    as={list.icon}
+                    size={18}
+                    color="currentColor"
+                    weight="fill"
+                  />
+                </span>
+                <strong>
+                  <AnimatedNumber value={counts[list.key]} />
+                </strong>
+                <span>{list.label}</span>
+              </button>
+            ))}
+          </div>
+          {visible.map((section) => (
+            <section key={section.title}>
+              <div
+                className="list-section-title"
+                style={{ "--heading": section.color } as React.CSSProperties}
+              >
+                <h2>{section.title}</h2>
+                <span>{section.tasks.length}</span>
+              </div>
+              <ul className="grouped-list row-divided">
+                <AnimatePresence initial={false}>
+                  {section.tasks.map((task) => (
+                    <TaskRow key={task.id} task={task} {...rowProps} />
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </section>
+          ))}
+          {!visible.length && (
+            <p
+              role="status"
+              className="py-12 text-center text-[15px] text-softink"
+            >
+              {filter === "completed"
+                ? "Nothing completed yet."
+                : "Nothing here. Enjoy the space."}
             </p>
           )}
-          <ul className="grouped-list divide-y divide-taupe">
-            <AnimatePresence initial={false}>
-              {open.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  today={today}
-                  disabled={action.busy}
-                  onToggle={toggle}
-                  onEdit={openEditor}
-                  onDelete={remove}
-                />
-              ))}
-            </AnimatePresence>
-          </ul>
-          {done.length > 0 && (
-            <section className="mt-6">
+          {filter === "all" && done.length > 0 && (
+            <section>
               <button
                 type="button"
                 onClick={() => setShowDone((value) => !value)}
                 aria-expanded={showDone}
-                className="flex min-h-11 w-full items-center justify-between text-sm font-medium text-softink"
+                className="disclosure"
               >
-                Done ({done.length})
-                <Icon as={showDone ? CaretUp : CaretDown} size={16} />
+                Completed ({done.length})
+                <Icon
+                  as={CaretDown}
+                  size={16}
+                  weight="bold"
+                  className="transition-transform"
+                  style={{ transform: showDone ? "rotate(180deg)" : "none" }}
+                />
               </button>
               {showDone && (
-                <ul className="grouped-list divide-y divide-taupe">
+                <ul className="grouped-list row-divided">
                   {done.map((task) => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      today={today}
-                      disabled={action.busy}
-                      onToggle={toggle}
-                      onEdit={openEditor}
-                      onDelete={remove}
-                    />
+                    <TaskRow key={task.id} task={task} {...rowProps} />
                   ))}
                 </ul>
               )}
@@ -191,7 +330,7 @@ export function Tasks() {
           }}
         >
           <InlineError>{action.error}</InlineError>
-          <label className="form-section block text-sm font-medium text-ink">
+          <label className="form-section">
             Task
             <input
               autoFocus
@@ -199,16 +338,16 @@ export function Tasks() {
               value={text}
               onChange={(event) => setText(event.target.value)}
               placeholder="What needs doing?"
-              className="form-field mt-2"
+              className="form-field"
             />
           </label>
-          <label className="form-section block text-sm text-softink">
+          <label className="form-section">
             Due date · optional
             <input
               type="date"
               value={dueDate}
               onChange={(event) => setDueDate(event.target.value)}
-              className="form-field mt-2"
+              className="form-field"
             />
           </label>
           {editing && (
@@ -216,8 +355,9 @@ export function Tasks() {
               type="button"
               disabled={action.busy}
               onClick={() => remove(editing)}
-              className="mt-2 min-h-11 w-full text-sm text-rust"
+              className="destructive-row press"
             >
+              <Icon as={Trash} size={18} color="currentColor" />
               Delete task
             </button>
           )}
@@ -250,31 +390,34 @@ function TaskRow({
   onDelete: (task: Task) => void;
 }) {
   const swipe = useSwipeToDelete(() => onDelete(task));
+  const overdue =
+    task.dueDate !== null && task.dueDate < today && !task.completed;
   const due =
     task.dueDate === today
-      ? "Due today"
+      ? "Today"
       : task.dueDate
-        ? `${task.dueDate < today && !task.completed ? "Overdue · " : "Due "}${formatShort(fromDayKey(task.dueDate).getTime())}`
+        ? `${overdue ? "Overdue · " : ""}${formatShort(fromDayKey(task.dueDate).getTime())}`
         : null;
   return (
     <motion.li
       layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.22, ease: [0.3, 0.7, 0.4, 1] }}
       className="relative overflow-hidden"
     >
       <div
         aria-hidden="true"
         className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-rust"
       >
-        <Icon as={Trash} size={20} color="var(--color-onaccent)" />
+        <Icon as={Trash} size={22} color="#fff" weight="fill" />
       </div>
       <motion.div
         {...swipe.handlers}
         animate={{ x: swipe.x }}
         style={{ touchAction: "pan-y" }}
-        className="relative flex items-center gap-2 bg-surface px-2 py-2"
+        className="task-row"
         onClickCapture={(event) => {
           if (swipe.consumeClick()) {
             event.preventDefault();
@@ -291,17 +434,24 @@ function TaskRow({
         <button
           type="button"
           onClick={() => onEdit(task)}
-          className="min-w-0 flex-1 py-1 text-left"
+          className="min-w-0 flex-1 py-2 text-left"
         >
           <span
-            className={`block break-words text-base ${task.completed ? "text-softink line-through" : "text-ink"}`}
+            className={`block break-words text-[17px] leading-snug transition-colors ${task.completed ? "text-softink line-through" : "text-ink"}`}
           >
             {task.text}
           </span>
           {due && (
             <span
-              className={`mt-1 block text-xs ${task.dueDate! < today && !task.completed ? "text-rust" : "text-softink"}`}
+              className="task-due"
+              style={overdue ? { color: "var(--color-rust)" } : undefined}
             >
+              <Icon
+                as={CalendarBlank}
+                size={13}
+                color="currentColor"
+                weight="bold"
+              />
               {due}
             </span>
           )}
@@ -313,7 +463,7 @@ function TaskRow({
           aria-label={`Options for ${task.text}`}
           className="tap-target flex shrink-0 items-center justify-center"
         >
-          <Icon as={DotsThree} size={22} />
+          <Icon as={DotsThree} size={22} weight="bold" />
         </button>
       </motion.div>
     </motion.li>

@@ -1,11 +1,12 @@
 import type { ComponentType } from "react";
+import { motion } from "framer-motion";
 import { Icon } from "./Icon";
 import {
-  BookOpen,
-  CheckSquareOffset,
-  ListNumbers,
+  BookBookmark,
+  CheckCircle,
+  Star,
   Repeat,
-  Pulse,
+  Sparkle,
   type IconProps,
 } from "@phosphor-icons/react";
 
@@ -18,11 +19,11 @@ interface TabDef {
 }
 
 export const TABS: TabDef[] = [
-  { key: "journal", label: "Journal", Icon: BookOpen },
-  { key: "tasks", label: "Tasks", Icon: CheckSquareOffset },
-  { key: "priorities", label: "Priorities", Icon: ListNumbers },
+  { key: "journal", label: "Journal", Icon: BookBookmark },
+  { key: "tasks", label: "Tasks", Icon: CheckCircle },
+  { key: "priorities", label: "Priorities", Icon: Star },
   { key: "habits", label: "Habits", Icon: Repeat },
-  { key: "review", label: "Review", Icon: Pulse },
+  { key: "review", label: "Review", Icon: Sparkle },
 ];
 
 interface TabBarProps {
@@ -30,10 +31,11 @@ interface TabBarProps {
   onChange: (key: TabKey) => void;
 }
 
+/** A floating glass capsule; the selection lozenge glides between tabs. */
 export function TabBar({ active, onChange }: TabBarProps) {
   return (
-    <nav className="tab-bar glass-toolbar" aria-label="Primary">
-      <ul className="flex">
+    <nav className="tab-bar glass" aria-label="Primary">
+      <ul>
         {TABS.map(({ key, label, Icon: Glyph }) => {
           const isActive = key === active;
           return (
@@ -44,15 +46,20 @@ export function TabBar({ active, onChange }: TabBarProps) {
                 aria-current={isActive ? "page" : undefined}
                 className={`tab-item tap-target ${isActive ? "is-active" : ""}`}
               >
-                <Icon as={Glyph} active={isActive} size={23} />
-                <span
-                  className={[
-                    "font-sans font-medium",
-                    isActive ? "text-terracotta" : "text-softink",
-                  ].join(" ")}
-                >
-                  {label}
-                </span>
+                {isActive && (
+                  <motion.span
+                    layoutId="tab-pill"
+                    className="tab-pill"
+                    transition={{ type: "spring", stiffness: 520, damping: 40 }}
+                  />
+                )}
+                <Icon
+                  as={Glyph}
+                  active={isActive}
+                  color={isActive ? "var(--tint)" : "var(--color-ink)"}
+                  size={25}
+                />
+                <span>{label}</span>
               </button>
             </li>
           );

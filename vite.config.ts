@@ -11,6 +11,7 @@ export default defineConfig({
       registerType: "prompt",
       injectRegister: false,
       includeAssets: [
+        "icons/icon.svg",
         "icons/apple-touch-icon-180.png",
         "icons/icon-192.png",
         "icons/icon-512.png",
@@ -26,8 +27,8 @@ export default defineConfig({
         display: "standalone",
         orientation: "portrait",
         lang: "en",
-        background_color: "#F2F2F7",
-        theme_color: "#F2F2F7",
+        background_color: "#F3F1EE",
+        theme_color: "#F3F1EE",
         icons: [
           {
             src: "icons/icon-192.png",
@@ -42,6 +43,12 @@ export default defineConfig({
             purpose: "any",
           },
           {
+            src: "icons/icon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any",
+          },
+          {
             src: "icons/icon-512-maskable.png",
             sizes: "512x512",
             type: "image/png",
@@ -51,6 +58,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // iOS reads launch images once at install; they need not be offline.
+        globIgnores: ["splash/**"],
         skipWaiting: false,
         clientsClaim: true,
       },

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
   db,
   type Mood,
@@ -7,12 +8,23 @@ import {
   type HabitLog,
 } from "../../lib/db";
 import { dayKey, fromDayKey } from "../../lib/date";
-import { currentStreak } from "../../lib/habits";
+import { currentStreak, isDoneOn } from "../../lib/habits";
 import { Icon } from "../../components/Icon";
 import { useAutosave } from "../../lib/useAutosave";
 import { SaveStatus } from "../../components/SaveStatus";
 import { InlineError } from "../../components/InlineError";
-import { Notebook, SmileyMeh, ChartLineUp } from "@phosphor-icons/react";
+import {
+  Notebook,
+  Smiley,
+  ChartBar,
+  Flame,
+  PencilLine,
+  BookOpen,
+  Heart,
+  type IconProps,
+} from "@phosphor-icons/react";
+import { ProgressRing } from "../../components/ProgressRing";
+import { AnimatedNumber } from "../../components/AnimatedNumber";
 
 // Stable-per-day reflection prompts (index derived from day number).
 const PROMPTS = [
@@ -26,11 +38,11 @@ const PROMPTS = [
 ];
 
 const MOODS = [
-  { score: 1, label: "Rough", color: "var(--color-rust)" },
-  { score: 2, label: "Low", color: "var(--color-rust)" },
-  { score: 3, label: "Okay", color: "var(--color-ochre)" },
-  { score: 4, label: "Good", color: "#7C8A5A" },
-  { score: 5, label: "Great", color: "var(--color-sage)" },
+  { score: 1, label: "Rough", color: "var(--tint-indigo)" },
+  { score: 2, label: "Low", color: "var(--tint-blue)" },
+  { score: 3, label: "Okay", color: "var(--tint-teal)" },
+  { score: 4, label: "Good", color: "var(--tint-green)" },
+  { score: 5, label: "Great", color: "var(--tint-orange)" },
 ];
 
 export function Review() {
@@ -46,6 +58,12 @@ export function Review() {
     totalEntries: number;
     avgMood: number | null;
   }>({ bestStreak: 0, wordsThisWeek: 0, totalEntries: 0, avgMood: null });
+  const [day, setDay] = useState({
+    habitsDone: 0,
+    habitsTotal: 0,
+    tasksDone: 0,
+    tasksDue: 0,
+  });
 
   const today = dayKey();
   const { writer, status } = useAutosave<{ date: string; content: string }>(
@@ -85,13 +103,15 @@ export function Review() {
   }, []);
 
   async function load() {
-    const [moods, reflections, entries, habits, logs] = await Promise.all([
-      db.moods.orderBy("createdAt").reverse().toArray(),
-      db.reflections.where("date").equals(today).toArray(),
-      db.entries.toArray(),
-      db.habits.toArray(),
-      db.habitLogs.toArray(),
-    ]);
+    const [moods, reflections, entries, habits, logs, tasks] =
+      await Promise.all([
+        db.moods.orderBy("createdAt").reverse().toArray(),
+        db.reflections.where("date").equals(today).toArray(),
+        db.entries.toArray(),
+        db.habits.toArray(),
+        db.habitLogs.toArray(),
+        db.tasks.toArray(),
+      ]);
 
     const todayMood = moods.find((m) => m.date === today) ?? null;
     setMood(todayMood);
@@ -110,6 +130,22 @@ export function Review() {
     setMoodStrip(strip);
 
     setStats(computeStats(entries, habits, logs, moods));
+    const active = habits.filter((h) => !h.archived);
+    const tasksDone = tasks.filter(
+      (t) =>
+        t.completed &&
+        t.completedAt &&
+        dayKey(new Date(t.completedAt)) === today,
+    ).length;
+    setDay({
+      habitsDone: active.filter((h) => isDoneOn(logs, h.id!, today)).length,
+      habitsTotal: active.length,
+      tasksDone,
+      tasksDue:
+        tasksDone +
+        tasks.filter((t) => !t.completed && t.dueDate && t.dueDate <= today)
+          .length,
+    });
   }
 
   async function pickMood(m: (typeof MOODS)[number]) {
@@ -134,21 +170,51 @@ export function Review() {
     }
   }
 
+  const reflected = (mood ? 1 : 0) + (reflectionText.trim() ? 1 : 0);
+  const rings = [
+    {
+      label: "Habits",
+      value: day.habitsTotal ? day.habitsDone / day.habitsTotal : 0,
+      color: "var(--tint-green)",
+      detail: day.habitsTotal
+        ? `${day.habitsDone}/${day.habitsTotal}`
+        : "None yet",
+    },
+    {
+      label: "Tasks",
+      value: day.tasksDue ? day.tasksDone / day.tasksDue : 0,
+      color: "var(--tint-blue)",
+      detail: day.tasksDue ? `${day.tasksDone}/${day.tasksDue}` : "Nothing due",
+    },
+    {
+      label: "Reflect",
+      value: reflected / 2,
+      color: "var(--tint-pink)",
+      detail: `${reflected}/2`,
+    },
+  ];
+
   return (
     <div className="screen-pad">
       <InlineError>{error}</InlineError>
+      {/* Today at a glance */}
+      <section className="review-section card ring-card">
+        <ProgressRing rings={rings} size={112} stroke={14} gap={2} />
+        <div className="rings-legend">
+          {rings.map((ring) => (
+            <div key={ring.label}>
+              <span style={{ color: ring.color }}>{ring.label}</span>
+              <strong>{ring.detail}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Daily reflection */}
-      <section className="review-section">
-        <div className="flex items-center gap-2">
-          <Icon
-            as={Notebook}
-            size={18}
-            color="var(--color-terracotta)"
-            weight="duotone"
-          />
-          <span className="font-sans text-sm font-medium text-ink">
-            Today's reflection
-          </span>
+      <section className="review-section card p-4">
+        <div className="card-heading">
+          <Icon as={Notebook} size={18} color="var(--tint)" weight="fill" />
+          Today's reflection
         </div>
         <p className="reflection-prompt">{prompt}</p>
         <textarea
@@ -166,7 +232,7 @@ export function Review() {
           rows={3}
           className="reflection-input placeholder:text-softink"
         />
-        <div className="mt-2 text-right">
+        <div className="mt-2 min-h-5 text-right">
           {(dirty.current || status === "error") && (
             <SaveStatus
               status={status}
@@ -179,17 +245,10 @@ export function Review() {
       </section>
 
       {/* Mood */}
-      <section className="review-section native-card p-4">
-        <div className="flex items-center gap-2">
-          <Icon
-            as={SmileyMeh}
-            size={18}
-            color="var(--color-terracotta)"
-            weight="duotone"
-          />
-          <span className="font-sans text-sm font-medium text-ink">
-            How are you?
-          </span>
+      <section className="review-section card p-4">
+        <div className="card-heading">
+          <Icon as={Smiley} size={18} color="var(--tint)" weight="fill" />
+          How are you feeling?
         </div>
         <div className="mt-3 grid grid-cols-5 gap-1">
           {MOODS.map((m) => (
@@ -201,49 +260,50 @@ export function Review() {
               aria-label={m.label}
               aria-pressed={mood?.score === m.score}
               className="mood-option"
+              style={{ "--orb": m.color } as React.CSSProperties}
             >
-              <span
-                className="h-4 w-4 rounded-full"
-                style={{ background: m.color }}
-              />
+              <span className="mood-orb" />
               <span>{m.label}</span>
             </button>
           ))}
         </div>
       </section>
 
-      {/* 7-day mood strip */}
-      <section className="review-section native-card p-4">
-        <span className="font-sans text-sm font-medium text-ink">
-          Last 7 days
-        </span>
-        <div className="mt-3 flex items-end justify-between gap-1">
+      {/* 7-day mood chart */}
+      <section className="review-section card p-4">
+        <div className="card-heading">
+          <Icon as={ChartBar} size={18} color="var(--tint)" weight="fill" />
+          Mood · last 7 days
+        </div>
+        <div className="mood-chart">
           {Array.from({ length: 7 }).map((_, i) => {
             const d = new Date();
             d.setDate(d.getDate() - (6 - i));
             const m = moodStrip.find((x) => x.date === dayKey(d));
+            const info = m ? MOODS[m.score - 1] : null;
             return (
-              <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                <span
+              <div key={i}>
+                <motion.span
                   role="img"
-                  aria-label={`${dayKey(d)}: ${m ? MOODS[m.score - 1].label : "No mood recorded"}`}
-                  className="week-dot"
-                  style={{
-                    background: m
-                      ? (MOODS[m.score - 1]?.color ?? "var(--color-taupe)")
-                      : "transparent",
-                    color: m ? "var(--color-surface)" : "var(--color-softink)",
-                    border: m ? "none" : "1px dashed var(--color-taupe)",
+                  aria-label={`${dayKey(d)}: ${info ? info.label : "No mood recorded"}`}
+                  className="mood-bar"
+                  initial={{ height: 6 }}
+                  animate={{ height: m ? `${m.score * 18}%` : 6 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 140,
+                    damping: 18,
+                    delay: i * 0.03,
                   }}
-                >
-                  {m ? "•" : "–"}
+                  style={{
+                    background: info
+                      ? `linear-gradient(180deg, color-mix(in srgb, ${info.color} 70%, white), ${info.color})`
+                      : undefined,
+                  }}
+                />
+                <span style={i === 6 ? { color: "var(--tint)" } : undefined}>
+                  {d.toLocaleDateString(undefined, { weekday: "narrow" })}
                 </span>
-                <span className="font-sans text-[10px] text-softink">
-                  {fromDayKey(dayKey(d))
-                    .toLocaleDateString(undefined, { weekday: "short" })
-                    .slice(0, 3)}
-                </span>
-                <span className="text-[10px] text-softink">{d.getDate()}</span>
               </div>
             );
           })}
@@ -251,41 +311,74 @@ export function Review() {
       </section>
 
       {/* Insights */}
-      <section className="review-section native-card p-4">
-        <div className="flex items-center gap-2">
-          <Icon
-            as={ChartLineUp}
-            size={18}
-            color="var(--color-terracotta)"
-            weight="duotone"
-          />
-          <span className="font-sans text-sm font-medium text-ink">
-            Past seven days
-          </span>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <Stat label="Top current streak" value={`${stats.bestStreak}d`} />
-          <Stat label="Words in new entries" value={`${stats.wordsThisWeek}`} />
-          <Stat label="Entries · all time" value={`${stats.totalEntries}`} />
-          <Stat
-            label="Average mood · 7 days"
-            value={
-              stats.avgMood != null ? `${stats.avgMood.toFixed(1)}/5` : "—"
-            }
-          />
-        </div>
-      </section>
+      <h2 className="group-title">Insights</h2>
+      <div className="stat-grid">
+        <Stat
+          icon={Flame}
+          color="var(--tint-orange)"
+          label="Top current streak"
+          value={stats.bestStreak}
+          suffix="d"
+        />
+        <Stat
+          icon={PencilLine}
+          color="var(--color-terracotta)"
+          label="Words this week"
+          value={stats.wordsThisWeek}
+        />
+        <Stat
+          icon={BookOpen}
+          color="var(--tint-indigo)"
+          label="Entries · all time"
+          value={stats.totalEntries}
+        />
+        <Stat
+          icon={Heart}
+          color="var(--tint-pink)"
+          label="Average mood · 7 days"
+          value={stats.avgMood}
+          suffix="/5"
+          decimals
+        />
+      </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  icon,
+  color,
+  label,
+  value,
+  suffix,
+  decimals = false,
+}: {
+  icon: React.ComponentType<IconProps>;
+  color: string;
+  label: string;
+  value: number | null;
+  suffix?: string;
+  decimals?: boolean;
+}) {
   return (
-    <div className="rounded-lg bg-paper px-3 py-2">
-      <div className="text-2xl font-semibold tabular-nums text-ink">
-        {value}
-      </div>
-      <div className="font-sans text-[11px] text-softink">{label}</div>
+    <div className="stat-tile">
+      <Icon as={icon} size={20} color={color} weight="fill" />
+      <strong className="mt-1.5">
+        {value == null ? (
+          "—"
+        ) : (
+          <AnimatedNumber
+            value={value}
+            suffix={suffix}
+            format={
+              decimals
+                ? { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+                : undefined
+            }
+          />
+        )}
+      </strong>
+      <span>{label}</span>
     </div>
   );
 }

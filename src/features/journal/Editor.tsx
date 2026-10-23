@@ -53,6 +53,8 @@ interface EditorProps {
   initialContent: unknown;
   onChange: (content: unknown, wordCount: number) => void;
   heading?: string;
+  /** Shown above the heading, e.g. the weekday and year. */
+  eyebrow?: string;
   wordCount?: number;
 }
 
@@ -61,6 +63,7 @@ export function Editor({
   initialContent,
   onChange,
   heading,
+  eyebrow,
   wordCount = 0,
 }: EditorProps) {
   const [formatting, setFormatting] = useState(false);
@@ -141,15 +144,16 @@ export function Editor({
       <div className="editor-scroll" data-empty={state.empty}>
         {heading && (
           <div className="editor-dateline">
-            <h2>{heading}</h2>
             <p>
+              {eyebrow ? `${eyebrow} · ` : ""}
               {wordCount} {wordCount === 1 ? "word" : "words"}
             </p>
+            <h2>{heading}</h2>
           </div>
         )}
         <EditorContent editor={editor} className="editor-content" />
       </div>
-      <div className="editor-dock glass-toolbar">
+      <div className="editor-dock glass">
         {formatting && (
           <div
             role="toolbar"

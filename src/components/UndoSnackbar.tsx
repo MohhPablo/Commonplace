@@ -1,9 +1,34 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { createContext, useContext, useEffect, useId, useRef } from "react";
+import { Toaster, toast } from "sonner";
+
+/** True once the app shell has mounted its shared toaster. */
+export const ToasterMounted = createContext(false);
+
+/** One toaster for the whole app, floating just above the tab bar. */
+export function AppToaster() {
+  return (
+    <Toaster
+      position="bottom-center"
+      theme="light"
+      gap={8}
+      offset={{ bottom: "calc(env(safe-area-inset-bottom) + 84px)" }}
+      mobileOffset={{ bottom: "calc(env(safe-area-inset-bottom) + 84px)" }}
+      toastOptions={{
+        className: "cp-toast",
+        style: {
+          background: "var(--glass-strong)",
+          color: "var(--color-ink)",
+          border: "none",
+        },
+      }}
+    />
+  );
+}
 
 /**
- * Bottom-anchored undo snackbar. Sits above the fixed TabBar so it never
- * collides with the nav. Reachable by keyboard (the Undo button is a real
- * button) and announced via aria-live.
+ * Bridges a pending undo into a Sonner toast. The toast lasts as long as the
+ * undo window, and swiping it away finalises the deletion. Screens rendered
+ * on their own (tests, previews) get a private toaster.
  */
 export function UndoSnackbar({
   pending,
@@ -14,39 +39,33 @@ export function UndoSnackbar({
   onUndo: () => void;
   onDismiss: () => void;
 }) {
-  return (
-    <AnimatePresence>
-      {pending && (
-        <motion.div
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 80, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 500, damping: 40 }}
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 z-50 mx-auto flex max-w-md justify-center px-5"
-          style={{ bottom: "calc(env(safe-area-inset-bottom) + 4.5rem)" }}
-        >
-          <div className="pointer-events-auto flex items-center gap-5 rounded-xl border border-taupe bg-surface px-5 py-3 shadow-lift">
-            <span className="font-sans text-sm text-ink">{pending.label}</span>
-            <button
-              type="button"
-              onClick={onUndo}
-              className="interactive min-h-11 font-sans text-sm font-semibold text-terracotta"
-            >
-              Undo
-            </button>
-            <button
-              type="button"
-              onClick={onDismiss}
-              aria-label="Dismiss"
-              className="tap-target interactive text-softink"
-            >
-              ×
-            </button>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+  const shared = useContext(ToasterMounted);
+  const id = useId();
+  const handlers = useRef({ onUndo, onDismiss });
+  handlers.current = { onUndo, onDismiss };
+
+  useEffect(() => {
+    if (!pending) {
+      toast.dismiss(id);
+      return;
+    }
+    let acted = false;
+    toast(pending.label, {
+      id,
+      duration: Infinity,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          acted = true;
+          handlers.current.onUndo();
+        },
+      },
+      onDismiss: () => {
+        if (!acted) handlers.current.onDismiss();
+      },
+    });
+  }, [pending, id]);
+  useEffect(() => () => void toast.dismiss(id), [id]);
+
+  return shared ? null : <AppToaster />;
 }

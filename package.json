@@ -1,7 +1,7 @@
 {
   "name": "commonplace",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
+    "@number-flow/react": "^0.6.2",
     "@phosphor-icons/react": "^2.1.7",
     "@tiptap/core": "^3.32.0",
     "@tiptap/pm": "^3.32.0",
@@ -21,7 +22,8 @@
     "dexie": "^4.0.10",
     "framer-motion": "^11.15.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
@@ -32,7 +34,6 @@
     "@vitejs/plugin-react": "^4.3.4",
     "fake-indexeddb": "^6.2.6",
     "jsdom": "^26.1.0",
-    "pngjs": "^7.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",

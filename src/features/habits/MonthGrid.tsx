@@ -5,9 +5,8 @@ interface MonthGridProps {
 }
 
 /**
- * Calendar-style completion view (spec §5.4): monthly grid where completed days
- * are marked with a small filled "ink stamp" dot — not a generic green heatmap.
- * Editorial paper feel: terracotta stamp on a warm taupe day cell.
+ * Calendar-style completion view (spec §5.4): completed days fill with the
+ * section tint, like a Fitness activity calendar; today is outlined.
  */
 export function MonthGrid({ year, month, doneDates }: MonthGridProps) {
   const first = new Date(year, month, 1);
@@ -21,11 +20,17 @@ export function MonthGrid({ year, month, doneDates }: MonthGridProps) {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+    <div className="month-grid">
+      {/* 1 February 2026 is a Sunday, so these are localised Sun–Sat initials. */}
+      {Array.from({ length: 7 }, (_, i) =>
+        new Date(2026, 1, i + 1).toLocaleDateString(undefined, {
+          weekday: "narrow",
+        }),
+      ).map((d, i) => (
         <div
           key={`h-${i}`}
-          className="text-center font-sans text-[10px] text-softink"
+          aria-hidden="true"
+          className="pb-1 text-center text-[11px] font-semibold text-softink"
         >
           {d}
         </div>
@@ -34,26 +39,16 @@ export function MonthGrid({ year, month, doneDates }: MonthGridProps) {
         if (d === null) return <div key={`b-${i}`} />;
         const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
         const done = doneDates.has(key);
-        const isToday = key === todayStr;
         return (
           <div
             key={key}
-            className="relative flex aspect-square items-center justify-center rounded-md"
-            style={{
-              background: isToday ? "var(--color-taupe)" : "transparent",
-              border: isToday
-                ? "1px solid var(--color-terracotta)"
-                : "1px solid transparent",
-            }}
+            className="month-day"
+            data-done={done}
+            data-today={key === todayStr}
+            role={done ? "img" : undefined}
+            aria-label={done ? `Completed ${key}` : undefined}
           >
-            <span className="font-sans text-xs text-ink">{d}</span>
-            {done && (
-              <span
-                role="img"
-                aria-label={`Completed ${key}`}
-                className="absolute bottom-0.5 h-1.5 w-1.5 rounded-full bg-sage"
-              />
-            )}
+            {d}
           </div>
         );
       })}

@@ -16,14 +16,17 @@ import { Icon } from "../../components/Icon";
 import {
   BookOpen,
   CaretLeft,
-  PencilSimple,
+  NotePencil,
   MagnifyingGlass,
   DotsThree,
-  X,
+  XCircle,
   Trash,
+  ArrowRight,
 } from "@phosphor-icons/react";
-import { formatDateline } from "../../lib/date";
-import { entryText } from "../../lib/entryText";
+import { dayKey } from "../../lib/date";
+import { entryPreview, entryText } from "../../lib/entryText";
+import { HeaderAction } from "../../components/FAB";
+import { AnimatedNumber } from "../../components/AnimatedNumber";
 import { useQuery } from "../../lib/useQuery";
 import { useAutosave } from "../../lib/useAutosave";
 import { useUndo } from "../../lib/useUndo";
@@ -81,7 +84,7 @@ export function Journal() {
         />
       ) : (
         <div className="screen-pad">
-          <div className="page-actions">
+          <HeaderAction>
             <button
               type="button"
               onClick={startNew}
@@ -91,19 +94,25 @@ export function Journal() {
               onFocus={() => {
                 void loadEditor();
               }}
-              className="text-action"
+              aria-label="New entry"
+              title="New entry"
+              className="header-button is-primary press"
             >
               <Icon
-                as={PencilSimple}
-                size={18}
-                color="var(--color-terracotta)"
+                as={NotePencil}
+                size={22}
+                color="currentColor"
                 weight="bold"
-              />{" "}
-              New entry
+              />
             </button>
-          </div>
+          </HeaderAction>
           <InlineError>{error}</InlineError>
-          <EntryList search={search} onSearch={setSearch} onOpen={setCurrent} />
+          <EntryList
+            search={search}
+            onSearch={setSearch}
+            onOpen={setCurrent}
+            onStart={startNew}
+          />
         </div>
       )}
       <UndoSnackbar
@@ -121,14 +130,43 @@ export function Journal() {
   );
 }
 
+const WRITING_PROMPTS = [
+  "What happened today that you want to remember?",
+  "What's been on your mind lately?",
+  "Describe a small moment from today.",
+  "What are you looking forward to?",
+  "What did today teach you?",
+];
+
+function journalStats(entries: Entry[], today: string) {
+  const days = new Set(
+    entries.map((entry) => dayKey(new Date(entry.createdAt))),
+  );
+  const cursor = new Date();
+  // A streak survives until the end of today, so start from yesterday if needed.
+  if (!days.has(today)) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (days.has(dayKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const words = entries
+    .filter((entry) => entry.createdAt >= weekAgo)
+    .reduce((sum, entry) => sum + (entry.wordCount ?? 0), 0);
+  return { streak, words, writtenToday: days.has(today) };
+}
+
 function EntryList({
   search,
   onSearch,
   onOpen,
+  onStart,
 }: {
   search: string;
   onSearch: (value: string) => void;
   onOpen: (entry: Entry) => void;
+  onStart: () => void;
 }) {
   const { value: entries, error, loading } = useQuery(loadEntries, []);
   if (loading)
@@ -137,11 +175,29 @@ function EntryList({
         <span className="sr-only">Loading entries…</span>
       </div>
     );
+  const today = dayKey();
+  const stats = journalStats(entries, today);
   const query = search.trim().toLocaleLowerCase();
   const filtered = entries.filter(
     (entry) =>
       !query || entryText(entry.content).toLocaleLowerCase().includes(query),
   );
+  const monthOf = (entry: Entry) =>
+    new Date(entry.createdAt).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+  const months: { label: string; entries: Entry[] }[] = [];
+  for (const entry of filtered) {
+    const label = monthOf(entry);
+    const last = months[months.length - 1];
+    if (last?.label === label) last.entries.push(entry);
+    else months.push({ label, entries: [entry] });
+  }
+  const prompt =
+    WRITING_PROMPTS[
+      Math.floor(Date.now() / 86_400_000) % WRITING_PROMPTS.length
+    ];
   return (
     <>
       <InlineError>
@@ -153,11 +209,50 @@ function EntryList({
         <EmptyState
           icon={BookOpen}
           title="Your journal starts here"
-          message="A thought, a memory, a few lines about today."
+          message="A thought, a memory, a few lines about today. Everything stays on this device."
+          action={
+            <button
+              type="button"
+              onClick={onStart}
+              className="native-primary press"
+            >
+              Write your first entry
+            </button>
+          }
         />
       ) : (
         <>
-          <div className="search-field">
+          <div className="summary-row">
+            <div className="stat-tile">
+              <strong>
+                <AnimatedNumber value={entries.length} />
+              </strong>
+              <span>{entries.length === 1 ? "Entry" : "Entries"}</span>
+            </div>
+            <div className="stat-tile">
+              <strong>
+                <AnimatedNumber value={stats.streak} />
+              </strong>
+              <span>Day streak</span>
+            </div>
+            <div className="stat-tile">
+              <strong>
+                <AnimatedNumber value={stats.words} />
+              </strong>
+              <span>Words this week</span>
+            </div>
+          </div>
+          {!stats.writtenToday && !query && (
+            <div className="prompt-card card">
+              <span className="eyebrow">Today's prompt</span>
+              <p>{prompt}</p>
+              <button type="button" onClick={onStart} className="press">
+                Write about today
+                <ArrowRightIcon />
+              </button>
+            </div>
+          )}
+          <div className="search-field mt-4">
             <Icon as={MagnifyingGlass} size={18} />
             <input
               type="search"
@@ -165,7 +260,7 @@ function EntryList({
               value={search}
               onChange={(event) => onSearch(event.target.value)}
               placeholder="Search your writing"
-              className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-softink"
+              className="min-h-10 min-w-0 flex-1 bg-transparent text-[17px] text-ink outline-none placeholder:text-softink [&::-webkit-search-cancel-button]:hidden"
             />
             {search && (
               <button
@@ -174,63 +269,79 @@ function EntryList({
                 aria-label="Clear search"
                 className="tap-target flex items-center justify-center"
               >
-                <Icon as={X} size={16} />
+                <Icon as={XCircle} size={18} weight="fill" />
               </button>
             )}
           </div>
-          <ul className="entry-list">
-            {filtered.map((entry, index) => {
-              const month = new Date(entry.createdAt).toLocaleDateString(
-                undefined,
-                { month: "long", year: "numeric" },
-              );
-              const previousMonth = index
-                ? new Date(filtered[index - 1].createdAt).toLocaleDateString(
-                    undefined,
-                    { month: "long", year: "numeric" },
-                  )
-                : null;
-              return (
-                <li key={entry.id}>
-                  {month !== previousMonth && (
-                    <h2 className="entry-month">{month}</h2>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onOpen(entry)}
-                    onPointerEnter={() => {
-                      void loadEditor();
-                    }}
-                    className="entry-row"
-                  >
-                    <span className="entry-title">
-                      {entryText(entry.content).trim().slice(0, 80) ||
-                        "New entry"}
-                    </span>
-                    <span className="entry-meta">
-                      <span>
-                        {new Date(entry.createdAt).toLocaleDateString(
-                          undefined,
-                          { day: "numeric", month: "short" },
-                        )}
-                      </span>
-                      <span>
-                        {entry.wordCount}{" "}
-                        {entry.wordCount === 1 ? "word" : "words"}
-                      </span>
-                    </span>
-                    {entryText(entry.content).trim().length > 80 && (
-                      <p className="entry-excerpt line-clamp-2">
-                        {entryText(entry.content).trim().slice(80, 260)}
-                      </p>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="entry-list">
+            {months.map((month) => (
+              <section key={month.label}>
+                <h2 className="entry-month">{month.label}</h2>
+                <ul className="entry-group">
+                  {month.entries.map((entry) => {
+                    const { title, excerpt } = entryPreview(entry.content);
+                    const created = new Date(entry.createdAt);
+                    return (
+                      <li key={entry.id}>
+                        <button
+                          type="button"
+                          onClick={() => onOpen(entry)}
+                          onPointerEnter={() => {
+                            void loadEditor();
+                          }}
+                          className="entry-card press"
+                        >
+                          <span className="entry-date" aria-hidden="true">
+                            <span className="entry-weekday">
+                              {created.toLocaleDateString(undefined, {
+                                weekday: "short",
+                              })}
+                            </span>
+                            <span className="entry-day">
+                              {created.getDate()}
+                            </span>
+                          </span>
+                          <span className="entry-body">
+                            <span className="entry-title">
+                              {title || "New entry"}
+                            </span>
+                            {excerpt && (
+                              <span className="entry-excerpt line-clamp-2 block">
+                                {excerpt}
+                              </span>
+                            )}
+                            <span className="entry-meta">
+                              <span>
+                                {created.toLocaleDateString(undefined, {
+                                  day: "numeric",
+                                  month: "short",
+                                })}
+                                {" · "}
+                                {created.toLocaleTimeString(undefined, {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span>
+                                {entry.wordCount}{" "}
+                                {entry.wordCount === 1 ? "word" : "words"}
+                              </span>
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
           {filtered.length === 0 && (
-            <p role="status" className="py-10 text-center text-sm text-softink">
+            <p
+              role="status"
+              className="py-10 text-center text-[15px] text-softink"
+            >
               No entries match “{search}”.
             </p>
           )}
@@ -238,6 +349,10 @@ function EntryList({
       )}
     </>
   );
+}
+
+function ArrowRightIcon() {
+  return <Icon as={ArrowRight} size={16} color="currentColor" weight="bold" />;
 }
 
 function WriteView({
@@ -286,14 +401,14 @@ function WriteView({
   }
   return (
     <div className="writer">
-      <header className="writer-header glass-toolbar">
+      <header className="writer-header">
         <button
           type="button"
           disabled={busy}
           onClick={leave}
-          className="writer-back"
+          className="writer-back glass press"
         >
-          <Icon as={CaretLeft} size={22} color="var(--color-terracotta)" />{" "}
+          <Icon as={CaretLeft} size={20} color="currentColor" weight="bold" />
           Entries
         </button>
         <SaveStatus
@@ -302,24 +417,29 @@ function WriteView({
             void writer.flush().catch(() => {});
           }}
         />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <details className="entry-menu">
             <summary
               aria-label="Entry options"
-              className="tap-target flex list-none items-center justify-center"
+              className="header-button glass flex list-none items-center justify-center"
             >
-              <Icon as={DotsThree} size={24} />
+              <Icon
+                as={DotsThree}
+                size={24}
+                color="var(--color-ink)"
+                weight="bold"
+              />
             </summary>
-            <div className="entry-menu-panel glass-sheet">
+            <div className="entry-menu-panel glass">
               <button
                 type="button"
                 disabled={busy}
                 onClick={remove}
                 aria-label="Delete entry"
-                className="flex min-h-12 items-center gap-3 px-4 text-sm text-rust"
+                className="flex min-h-12 w-full items-center justify-between gap-3 px-4 text-[17px] text-rust"
               >
-                <Icon as={Trash} size={18} color="var(--color-rust)" />
                 Delete entry
+                <Icon as={Trash} size={20} color="var(--color-rust)" />
               </button>
             </div>
           </details>
@@ -327,7 +447,7 @@ function WriteView({
             type="button"
             disabled={busy}
             onClick={leave}
-            className="writer-done"
+            className="writer-done press"
           >
             Done
           </button>
@@ -344,7 +464,16 @@ function WriteView({
         >
           <Editor
             initialContent={entry.content}
-            heading={formatDateline(entry.createdAt)}
+            heading={new Date(entry.createdAt).toLocaleDateString(undefined, {
+              day: "numeric",
+              month: "long",
+            })}
+            eyebrow={`${new Date(entry.createdAt).toLocaleDateString(
+              undefined,
+              {
+                weekday: "long",
+              },
+            )}, ${new Date(entry.createdAt).getFullYear()}`}
             wordCount={words}
             onChange={(content, wordCount) => {
               latest.current = {

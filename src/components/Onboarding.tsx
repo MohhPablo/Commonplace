@@ -1,104 +1,125 @@
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import type { ComponentType, CSSProperties } from "react";
+import { motion } from "framer-motion";
 import { Icon } from "./Icon";
-import { BookOpen, Repeat, Pulse, ArrowRight } from "@phosphor-icons/react";
+import {
+  BookBookmark,
+  CheckCircle,
+  Repeat,
+  LockSimple,
+  type IconProps,
+} from "@phosphor-icons/react";
 
-const CARDS = [
+const FEATURES: {
+  icon: ComponentType<IconProps>;
+  color: string;
+  title: string;
+  body: string;
+}[] = [
   {
-    icon: BookOpen,
+    icon: BookBookmark,
+    color: "var(--tint-brand)",
     title: "A quiet place to write",
-    body: "Capture the day in your Journal. Everything stays on your device — no accounts, no cloud.",
+    body: "A full-page journal with gentle prompts. Your words never leave this device.",
+  },
+  {
+    icon: CheckCircle,
+    color: "var(--tint-blue)",
+    title: "Tasks and priorities",
+    body: "See what's due today and rank what matters most.",
   },
   {
     icon: Repeat,
-    title: "Small habits, gentle streaks",
-    body: "Tap a habit done for today, watch your streak grow, and set a daily reminder that fits you.",
+    color: "var(--tint-green)",
+    title: "Habits that stick",
+    body: "One tap a day. Watch your streaks grow and your rings close.",
   },
   {
-    icon: Pulse,
-    title: "Reflect & review",
-    body: "Answer one prompt each evening, note your mood, and see warm insights about your week.",
+    icon: LockSimple,
+    color: "var(--tint-indigo)",
+    title: "Private by design",
+    body: "No account, no cloud. Add a passcode and keep backups on your terms.",
   },
 ];
 
+/** First-run welcome, in the style of Apple's "Welcome to…" screens. */
 export function Onboarding({ onDone }: { onDone: () => void }) {
-  const [step, setStep] = useState(0);
-  const card = CARDS[step];
-  const last = step === CARDS.length - 1;
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-paper px-8"
-      style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+      className="onboarding"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="welcome-title"
     >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={step}
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+        <motion.img
+          src="/icons/icon.svg"
+          alt=""
+          className="mx-auto h-[84px] w-[84px] rounded-[19px] shadow-xl"
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{
+            type: "spring",
+            stiffness: 260,
+            damping: 18,
+            delay: 0.1,
+          }}
+        />
+        <motion.h1
+          id="welcome-title"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.25 }}
-          className="flex flex-col items-center text-center"
+          transition={{ delay: 0.2, duration: 0.4 }}
         >
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-transparent">
-            <Icon
-              as={card.icon}
-              size={40}
-              color="var(--color-terracotta)"
-              weight="duotone"
-            />
-          </div>
-          <h2 className="font-sans text-2xl font-semibold text-ink">
-            {card.title}
-          </h2>
-          <p className="mt-3 max-w-xs font-sans text-sm text-softink">
-            {card.body}
+          Welcome to
+          <br />
+          <span style={{ color: "var(--tint-brand)" }}>Commonplace</span>
+        </motion.h1>
+        <ul className="mt-10 space-y-7">
+          {FEATURES.map((feature, index) => (
+            <motion.li
+              key={feature.title}
+              className="feature-row"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.32 + index * 0.08, duration: 0.42 }}
+            >
+              <span
+                className="icon-tile !h-11 !w-11"
+                style={
+                  { "--tile": feature.color, "--r": "12px" } as CSSProperties
+                }
+              >
+                <Icon as={feature.icon} size={26} color="#fff" weight="fill" />
+              </span>
+              <div className="min-w-0">
+                <h2>{feature.title}</h2>
+                <p>{feature.body}</p>
+              </div>
+            </motion.li>
+          ))}
+        </ul>
+        <div className="flex-1" />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.75 }}
+          className="pt-8"
+        >
+          <p className="mb-4 text-center text-[13px] leading-snug text-softink">
+            Everything is stored privately on this device.
           </p>
+          <button
+            type="button"
+            onClick={onDone}
+            className="native-primary press w-full"
+            style={{ "--tint": "var(--tint-brand)" } as CSSProperties}
+          >
+            Continue
+          </button>
         </motion.div>
-      </AnimatePresence>
-
-      <div className="mt-8 flex items-center gap-2">
-        {CARDS.map((_, i) => (
-          <span
-            key={i}
-            className="h-2 w-2 rounded-full"
-            style={{
-              background:
-                i === step ? "var(--color-terracotta)" : "var(--color-taupe)",
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="mt-8 flex w-full max-w-xs items-center justify-between">
-        <button
-          type="button"
-          onClick={onDone}
-          className="interactive font-sans text-sm text-softink underline"
-        >
-          Skip
-        </button>
-        <button
-          type="button"
-          onClick={() => (last ? onDone() : setStep((s) => s + 1))}
-          className="interactive flex items-center gap-1.5 rounded-xl bg-terracotta px-5 py-2.5 font-sans text-sm font-medium text-onaccent"
-        >
-          {last ? "Get started" : "Next"}
-          {!last && (
-            <Icon
-              as={ArrowRight}
-              size={16}
-              color="var(--color-onaccent)"
-              weight="bold"
-            />
-          )}
-        </button>
       </div>
     </motion.div>
   );

@@ -26,7 +26,9 @@ The regression suite covers database upgrades, PIN changes, backup validation, r
 
 ## App experience
 
-- The compact header and bottom-attached tab bar surround independently scrolling content. Safe-area padding belongs to the chrome; there is no floating bottom margin.
+- Each screen opens with an iOS-style large title that collapses into the navigation bar on scroll. A floating glass tab bar sits above the home indicator, and each space has its own tint: Journal terracotta, Tasks blue, Priorities indigo, Habits green, Review pink.
+- Launch: iOS shows a generated launch image, the HTML boot splash repeats it exactly, then the animated splash zooms into the app. Regenerate the icon and launch images with `npm i --no-save playwright && node scripts/gen-icons.mjs`.
+- Theme defaults to System (follows the device's light/dark setting); Light, Sepia and Dark remain available in Settings.
 - Sheets close from their grabber, heading, or a downward pull on non-interactive content at the top. Scrolling and editing fields keep their usual behavior.
 - The journal opens as a full-height writing page, with a keyboard-aware toolbar, undo/redo, lists, formatting, and an optional book font. Done saves before returning to entries.
 - Writing size (Small / Default / Large) is available in Settings. Page zoom gestures are restricted on app surfaces while text selection remains available.

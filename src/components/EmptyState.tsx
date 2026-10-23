@@ -9,10 +9,7 @@ interface EmptyStateProps {
   action?: React.ReactNode;
 }
 
-/**
- * Shared empty-state used across tabs (spec §11: empty states must use the
- * palette, not look like a generic component-library demo).
- */
+/** Shared empty state: a lit, tinted symbol tile above a short invitation. */
 export function EmptyState({
   icon: Glyph,
   title,
@@ -21,12 +18,9 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="empty-state">
-      <Icon
-        as={Glyph}
-        size={38}
-        color="var(--color-softink)"
-        weight="regular"
-      />
+      <span className="icon-tile">
+        <Icon as={Glyph} size={34} color="#fff" weight="fill" />
+      </span>
       <h2>{title}</h2>
       <p>{message}</p>
       {action ? <div className="mt-6">{action}</div> : null}

@@ -1,11 +1,21 @@
 import { useState } from "react";
-import { Icon } from "./Icon";
-import { Backspace } from "@phosphor-icons/react";
+
+const LETTERS: Record<string, string> = {
+  "2": "ABC",
+  "3": "DEF",
+  "4": "GHI",
+  "5": "JKL",
+  "6": "MNO",
+  "7": "PQRS",
+  "8": "TUV",
+  "9": "WXYZ",
+};
 
 /**
  * Custom numeric keypad (spec §2) — replaces the native password <input> on
  * the lock screen so the OS keyboard never slides up and breaks the layout.
- * Calls `onComplete` automatically once `length` digits are entered.
+ * Laid out like the iPhone passcode screen. Calls `onComplete` automatically
+ * once `length` digits are entered.
  */
 export function PinPad({
   length = 4,
@@ -30,7 +40,19 @@ export function PinPad({
     setValue((v) => v.slice(0, -1));
   }
 
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  const key = (digit: string) => (
+    <button
+      key={digit}
+      type="button"
+      disabled={disabled}
+      aria-label={`Digit ${digit}`}
+      onClick={() => press(digit)}
+      className="pin-key"
+    >
+      <b>{digit}</b>
+      {digit !== "0" && <small>{LETTERS[digit] ?? "\u00a0"}</small>}
+    </button>
+  );
 
   return (
     <div
@@ -49,57 +71,24 @@ export function PinPad({
       <span className="sr-only" role="status">
         {value.length} of {length} digits entered
       </span>
-      <div className="flex justify-center gap-3">
+      <div className="pin-dots" aria-hidden="true">
         {Array.from({ length }).map((_, i) => (
-          <span
-            key={i}
-            className="h-3.5 w-3.5 rounded-full border-2 transition-transform"
-            style={{
-              borderColor: "var(--color-taupe)",
-              background:
-                i < value.length ? "var(--color-terracotta)" : "transparent",
-              transform: i < value.length ? "scale(1.2)" : "scale(1)",
-            }}
-          />
+          <span key={i} data-filled={i < value.length} />
         ))}
       </div>
 
-      <div className="mx-auto mt-6 grid w-full max-w-[280px] grid-cols-3 gap-2">
-        {keys.map((k) => (
-          <button
-            key={k}
-            type="button"
-            disabled={disabled}
-            aria-label={`Digit ${k}`}
-            onClick={() => press(k)}
-            className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface font-sans text-2xl font-semibold text-ink transition-colors"
-          >
-            {k}
-          </button>
-        ))}
+      <div className="pin-grid">
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map(key)}
         <span />
+        {key("0")}
         <button
           type="button"
-          disabled={disabled}
-          aria-label="Digit 0"
-          onClick={() => press("0")}
-          className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface font-sans text-2xl font-semibold text-ink transition-colors"
-        >
-          0
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
+          disabled={disabled || !value}
           aria-label="Delete"
           onClick={del}
-          className="interactive flex h-[4.5rem] items-center justify-center rounded-2xl bg-surface transition-transform active:scale-95"
+          className="pin-key is-plain"
         >
-          <Icon
-            as={Backspace}
-            size={24}
-            color="var(--color-softink)"
-            weight="light"
-          />
+          Delete
         </button>
       </div>
     </div>

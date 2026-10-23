@@ -61,54 +61,53 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-paper px-8"
-      style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+      className="lock-screen"
     >
-      <div
-        className="mb-10 font-sans text-3xl font-semibold"
-        style={{ color: "var(--color-ink)" }}
-      >
-        Commonplace<span style={{ color: "var(--color-terracotta)" }}>.</span>
-      </div>
-
+      <img
+        src="/icons/icon.svg"
+        alt=""
+        className="h-14 w-14 rounded-[13px] shadow-lg"
+      />
       {!confirmReset ? (
-        <div className="w-full max-w-xs">
-          <p
-            className="mb-6 text-center font-sans text-sm"
-            style={{ color: "var(--color-softink)" }}
-          >
+        <div className="mt-5 w-full max-w-xs">
+          <p className="mb-7 text-center text-[20px] font-semibold">
             Enter your passcode to unlock
           </p>
-          <PinPad
+          <motion.div
             key={dialerKey}
-            length={4}
-            onComplete={submit}
-            disabled={busy || cooldown > 0}
-          />
-          {error && (
-            <p
-              className="mt-5 text-center font-sans text-sm"
-              style={{ color: "var(--color-rust)" }}
-            >
-              {cooldown ? `Try again in ${cooldown} seconds.` : error}
-            </p>
-          )}
-          {
+            animate={error && dialerKey ? { x: [0, -16, 14, -10, 6, 0] } : {}}
+            transition={{ duration: 0.42 }}
+          >
+            <PinPad
+              length={4}
+              onComplete={submit}
+              disabled={busy || cooldown > 0}
+            />
+          </motion.div>
+          <p
+            role="alert"
+            className="mt-6 min-h-5 text-center text-[15px] text-rust"
+          >
+            {error
+              ? cooldown
+                ? `Try again in ${cooldown} seconds.`
+                : error
+              : ""}
+          </p>
+          <div className="mt-2 flex justify-center">
             <button
               type="button"
               onClick={() => setConfirmReset(true)}
-              className="interactive mt-5 w-full font-sans text-sm text-softink underline"
+              className="link-button"
             >
               Forgot passcode?
             </button>
-          }
+          </div>
         </div>
       ) : (
-        <div className="w-full max-w-xs text-center">
-          <p className="font-sans text-sm text-ink">
+        <div className="card mt-6 w-full max-w-sm p-5 text-center">
+          <h2 className="text-[20px] font-bold">Reset Commonplace?</h2>
+          <p className="mt-2 text-[15px] leading-snug text-softink">
             Resetting wipes all journal entries, tasks, priorities, habits,
             moods, reflections, and settings. This cannot be undone.
           </p>
@@ -116,7 +115,8 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             type="button"
             disabled={busy}
             onClick={doReset}
-            className="interactive mt-4 w-full rounded-full bg-rust px-4 py-3 font-sans text-base font-medium text-onaccent"
+            className="native-primary press mt-5 w-full"
+            style={{ "--tint": "var(--color-rust)" } as React.CSSProperties}
           >
             Reset everything
           </button>
@@ -124,7 +124,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             type="button"
             disabled={busy}
             onClick={() => setConfirmReset(false)}
-            className="interactive mt-3 w-full font-sans text-sm text-softink underline"
+            className="link-button mt-2 w-full"
           >
             Cancel
           </button>
